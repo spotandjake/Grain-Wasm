@@ -343,6 +343,50 @@ enum WasmInstr {
   WasmInstrI64TruncSatF32U,
   WasmInstrI64TruncSatF64S,
   WasmInstrI64TruncSatF64U,
+  WasmInstrV128_Load{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_8x8SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_8x8ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_16x4SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_16x4ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_32x2SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_32x2ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_8_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_16_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_32_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_64_Splat{
+    align: Number,
+    offset: Number,
+  },
   WasmInstrElse,
   WasmInstrEnd,
 }
@@ -394,6 +438,44 @@ record WasmFunctionType {
 }
 ```
 
+### Wasm.**WasmElemMode**
+
+```grain
+enum WasmElemMode {
+  ElemPassive,
+  ElemActive{
+    tableIdx: Number,
+    offset: List<WasmInstr>,
+  },
+  ElemDeclarative,
+}
+```
+
+### Wasm.**WasmElementSegment**
+
+```grain
+record WasmElementSegment {
+  wasmType: WasmType,
+  contents: List<List<WasmInstr>>,
+  elemMode: WasmElemMode,
+}
+```
+
+### Wasm.**WasmDataSegment**
+
+```grain
+enum WasmDataSegment {
+  DataActive{
+    memIdx: Number,
+    offset: List<WasmInstr>,
+    content: Bytes,
+  },
+  DataPassive{
+    content: Bytes,
+  },
+}
+```
+
 ### Wasm.**WasmImportDesc**
 
 ```grain
@@ -428,10 +510,10 @@ enum Sections {
   GlobalSection(List<(WasmGlobalType, List<WasmInstr>)>),
   ExportSection(List<WasmExportType>),
   StartSection(Number),
-  ElementSection(Void),
+  ElementSection(List<WasmElementSegment>),
   DataCountSection(Number),
   CodeSection(List<WasmFunctionType>),
-  DataSection(Void),
+  DataSection(List<WasmDataSegment>),
 }
 ```
 

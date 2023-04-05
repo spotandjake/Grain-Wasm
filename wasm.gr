@@ -23,11 +23,11 @@ provide enum WasmParseError {
   InvalidExportDescription(Int16),
   InvalidWasmInstr(Int16),
   UnexpectedEndOfInput,
-  InvalidDataLayout(Number),
 }
 enum Parent {
   ParentFunction,
   ParentGlobal,
+  ParentElement,
   ParentBlock,
   ParentData,
 }
@@ -426,13 +426,26 @@ provide record WasmFunctionType {
   locals: List<WasmLocalType>,
   body: List<WasmInstr>,
 }
-provide enum WasmDataSection {
-  Active{
+provide enum WasmElemMode {
+  ElemPassive,
+  ElemActive{
+    tableIdx: Number,
+    offset: List<WasmInstr>,
+  },
+  ElemDeclarative,
+}
+provide record WasmElementSegment {
+  wasmType: WasmType,
+  contents: List<List<WasmInstr>>,
+  elemMode: WasmElemMode,
+}
+provide enum WasmDataSegment {
+  DataActive{
     memIdx: Number,
     offset: List<WasmInstr>,
     content: Bytes,
   },
-  Passive{
+  DataPassive{
     content: Bytes,
   },
 }
@@ -457,10 +470,10 @@ provide enum Sections {
   GlobalSection(List<(WasmGlobalType, List<WasmInstr>)>),
   ExportSection(List<WasmExportType>),
   StartSection(Number),
-  ElementSection(Void),
+  ElementSection(List<WasmElementSegment>),
   DataCountSection(Number),
   CodeSection(List<WasmFunctionType>),
-  DataSection(List<WasmDataSection>),
+  DataSection(List<WasmDataSegment>),
 }
 // Helpers
 record WasmParserState {
@@ -767,6 +780,15 @@ provide module Parser {
       _ => return Err(InvalidWasmLimitType(limitType)),
     }
     return Ok((minLimit, maxLimit))
+  }
+  let parseWasmKind = parserState => {
+    let wasmType = match (parserState.currentByte) {
+      0x00S => Ok(WasmFuncRef),
+      // Unknown Type
+      c => Err(InvalidWasmType(c)),
+    }
+    nextByteU(parserState)
+    wasmType
   }
   let parseWasmType = (parserState, typeFilter=AllType) => {
     let wasmType = match (parserState.currentByte) {
@@ -1605,8 +1627,207 @@ provide module Parser {
         StartSection(startIdx)
       },
       RawElementSection(bytes) => {
-        // TODO: Parse Element Section
-        ElementSection(void)
+        let parserState = makeParser(bytes)
+        let elementCount = getUleb128AndAdvance(parserState, 32)
+        let mut elements = []
+        for (let mut i = 0; i < elementCount; i += 1) {
+          let elementType = getUleb128AndAdvance(parserState, 32)
+          match (elementType) {
+            0 => {
+              let expr = match (parseExpr(parserState, ParentElement)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let funcCount = getUleb128AndAdvance(parserState, 32)
+              let mut funcIndices = []
+              for (let mut i = 0; i < funcCount; i += 1) {
+                let funcIdx = getUleb128AndAdvance(parserState, 32)
+                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+              }
+              funcIndices = [WasmInstrEnd, ...funcIndices]
+              elements = [
+                {
+                  wasmType: WasmFuncRef,
+                  contents: [List.reverse(funcIndices)],
+                  elemMode: ElemActive{ tableIdx: 0, offset: expr },
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            1 => {
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let funcCount = getUleb128AndAdvance(parserState, 32)
+              let mut funcIndices = []
+              for (let mut i = 0; i < funcCount; i += 1) {
+                let funcIdx = getUleb128AndAdvance(parserState, 32)
+                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+              }
+              funcIndices = [WasmInstrEnd, ...funcIndices]
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: [List.reverse(funcIndices)],
+                  elemMode: ElemPassive,
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            2 => {
+              let tableIndex = getUleb128AndAdvance(parserState, 32)
+              let expr = match (parseExpr(parserState, ParentElement)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let funcCount = getUleb128AndAdvance(parserState, 32)
+              let mut funcIndices = []
+              for (let mut i = 0; i < funcCount; i += 1) {
+                let funcIdx = getUleb128AndAdvance(parserState, 32)
+                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+              }
+              funcIndices = [WasmInstrEnd, ...funcIndices]
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: [List.reverse(funcIndices)],
+                  elemMode: ElemActive{ tableIdx: tableIndex, offset: expr },
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            3 => {
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let funcCount = getUleb128AndAdvance(parserState, 32)
+              let mut funcIndices = []
+              for (let mut i = 0; i < funcCount; i += 1) {
+                let funcIdx = getUleb128AndAdvance(parserState, 32)
+                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+              }
+              funcIndices = [WasmInstrEnd, ...funcIndices]
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: [List.reverse(funcIndices)],
+                  elemMode: ElemDeclarative,
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            4 => {
+              let expr = match (parseExpr(parserState, ParentElement)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let exprCount = getUleb128AndAdvance(parserState, 32)
+              let mut exprs = []
+              for (let mut i = 0; i < exprCount; i += 1) {
+                let expr = match (parseExpr(parserState, ParentElement)) {
+                  Ok(t) => t,
+                  Err(e) => return Err(e),
+                }
+                exprs = [expr, ...exprs]
+              }
+              elements = [
+                {
+                  wasmType: WasmFuncRef,
+                  contents: List.reverse(exprs),
+                  elemMode: ElemActive{ tableIdx: 0, offset: expr },
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            5 => {
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let exprCount = getUleb128AndAdvance(parserState, 32)
+              let mut exprs = []
+              for (let mut i = 0; i < exprCount; i += 1) {
+                let expr = match (parseExpr(parserState, ParentElement)) {
+                  Ok(t) => t,
+                  Err(e) => return Err(e),
+                }
+                exprs = [expr, ...exprs]
+              }
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: List.reverse(exprs),
+                  elemMode: ElemPassive,
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            6 => {
+              let tableIndex = getUleb128AndAdvance(parserState, 32)
+              let expr = match (parseExpr(parserState, ParentElement)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let exprCount = getUleb128AndAdvance(parserState, 32)
+              let mut exprs = []
+              for (let mut i = 0; i < exprCount; i += 1) {
+                let expr = match (parseExpr(parserState, ParentElement)) {
+                  Ok(t) => t,
+                  Err(e) => return Err(e),
+                }
+                exprs = [expr, ...exprs]
+              }
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: List.reverse(exprs),
+                  elemMode: ElemActive{ tableIdx: tableIndex, offset: expr },
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            7 => {
+              let elemKind = match (parseWasmKind(parserState)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              let exprCount = getUleb128AndAdvance(parserState, 32)
+              let mut exprs = []
+              for (let mut i = 0; i < exprCount; i += 1) {
+                let expr = match (parseExpr(parserState, ParentElement)) {
+                  Ok(t) => t,
+                  Err(e) => return Err(e),
+                }
+                exprs = [expr, ...exprs]
+              }
+              elements = [
+                {
+                  wasmType: elemKind,
+                  contents: List.reverse(exprs),
+                  elemMode: ElemDeclarative,
+                }: WasmElementSegment,
+                ...elements
+              ]
+            },
+            _ =>
+              return buildUnexpectedWasmTokenCustom(
+                parserState,
+                "0-7",
+                toString(elementType)
+              ),
+          }
+        }
+        ElementSection(List.reverse(elements))
       },
       RawDataCountSection(bytes) => {
         let parserState = makeParser(bytes)
@@ -1674,7 +1895,7 @@ provide module Parser {
                 parserState.bytes
               )
               // Add To List
-              data = [Active{ memIdx: 0, offset: expr, content }, ...data]
+              data = [DataActive{ memIdx: 0, offset: expr, content }, ...data]
             },
             1 => {
               // WasmDataSection
@@ -1691,7 +1912,7 @@ provide module Parser {
                 parserState.bytes
               )
               // Add To List
-              data = [Passive{ content, }, ...data]
+              data = [DataPassive{ content, }, ...data]
             },
             2 => {
               // Get Memory Index
@@ -1715,9 +1936,14 @@ provide module Parser {
                 parserState.bytes
               )
               // Add To List
-              data = [Active{ memIdx, offset: expr, content }, ...data]
+              data = [DataActive{ memIdx, offset: expr, content }, ...data]
             },
-            _ => return Err(InvalidDataLayout(dataLayout)),
+            _ =>
+              return buildUnexpectedWasmTokenCustom(
+                parserState,
+                "0-2",
+                toString(dataLayout)
+              ),
           }
         }
         DataSection(List.reverse(data))

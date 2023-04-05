@@ -26,8 +26,6 @@ An odd thing you may notice about the parser is that it is implemented in two st
 ## Parsing Support
 Currently we support most of the wasm spec, along with the tail call spec, Things left to add include but are not limited to:
 - [ ] Vector Instructions
-- [ ] Elem Section
-- [ ] Data Section
 
 ## Builder Support
 Building wasm has not yet been implemented but is a planned feature.
