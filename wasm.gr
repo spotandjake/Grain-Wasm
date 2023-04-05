@@ -23,11 +23,13 @@ provide enum WasmParseError {
   InvalidExportDescription(Int16),
   InvalidWasmInstr(Int16),
   UnexpectedEndOfInput,
+  InvalidDataLayout(Number),
 }
 enum Parent {
   ParentFunction,
   ParentGlobal,
   ParentBlock,
+  ParentData,
 }
 provide enum RawSections {
   RawCustomSection(Bytes),
@@ -355,6 +357,50 @@ provide enum WasmInstr {
   WasmInstrI64TruncSatF64S,
   WasmInstrI64TruncSatF64U,
   // TODO: Vector Instructions
+  WasmInstrV128_Load{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_8x8SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_8x8ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_16x4SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_16x4ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_32x2SLoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_32x2ULoad{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_8_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_16_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_32_Splat{
+    align: Number,
+    offset: Number,
+  },
+  WasmInstrV128_Load_64_Splat{
+    align: Number,
+    offset: Number,
+  },
   // End
   WasmInstrElse,
   WasmInstrEnd,
@@ -380,6 +426,16 @@ provide record WasmFunctionType {
   locals: List<WasmLocalType>,
   body: List<WasmInstr>,
 }
+provide enum WasmDataSection {
+  Active{
+    memIdx: Number,
+    offset: List<WasmInstr>,
+    content: Bytes,
+  },
+  Passive{
+    content: Bytes,
+  },
+}
 provide enum WasmImportDesc {
   WasmFuncImportDesc(Number),
   WasmTableImportDesc(WasmTableType),
@@ -404,7 +460,7 @@ provide enum Sections {
   ElementSection(Void),
   DataCountSection(Number),
   CodeSection(List<WasmFunctionType>),
-  DataSection(Void),
+  DataSection(List<WasmDataSection>),
 }
 // Helpers
 record WasmParserState {
@@ -786,6 +842,7 @@ provide module Parser {
       0x01S => true,
       _ => return Err(InvalidWasmGlobal),
     }
+    nextByteU(parserState)
     return Ok({ wasmType: valType, isMutable: mutable }: WasmGlobalType)
   }
   let parseWasmImport = parserState => {
@@ -799,7 +856,6 @@ provide module Parser {
     let importDesc = match (importDescType) {
       0x00S => {
         let typeID = getUleb128AndAdvance(parserState, 32)
-        nextByteU(parserState)
         WasmFuncImportDesc(typeID)
       },
       0x01S => {
@@ -1271,6 +1327,62 @@ provide module Parser {
       0xC3S => Ok(WasmInstrI64Extend16S),
       0xC4S => Ok(WasmInstrI64Extend32S),
       // TODO: Vector Instructions
+      0xFDS => {
+        let instrIndex = getUleb128AndAdvance(parserState, 32)
+        match (instrIndex) {
+          0 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_Load{ align, offset })
+          },
+          1 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_8x8SLoad{ align, offset })
+          },
+          2 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_8x8ULoad{ align, offset })
+          },
+          3 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_16x4SLoad{ align, offset })
+          },
+          4 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_16x4ULoad{ align, offset })
+          },
+          5 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_32x2SLoad{ align, offset })
+          },
+          6 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_32x2ULoad{ align, offset })
+          },
+          7 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_Load_8_Splat{ align, offset })
+          },
+          8 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_Load_16_Splat{ align, offset })
+          },
+          9 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_Load_32_Splat{ align, offset })
+          },
+          10 => {
+            let (align, offset) = parseMemArg(parserState)
+            Ok(WasmInstrV128_Load_64_Splat{ align, offset })
+          },
+          // Invalid
+          _ =>
+            buildUnexpectedWasmTokenCustom(
+              parserState,
+              "0-255",
+              toString(instrIndex)
+            ),
+        }
+      },
       // 0xFC leading
       0xFCS => {
         let instrIndex = getUleb128AndAdvance(parserState, 32)
@@ -1536,12 +1648,83 @@ provide module Parser {
         CodeSection(List.reverse(functions))
       },
       RawDataSection(bytes) => {
-        // TODO: Parse Data Section
-        DataSection(void)
+        let parserState = makeParser(bytes)
+        let dataCount = getUleb128AndAdvance(parserState, 32)
+        let mut data = []
+        for (let mut i = 0; i < dataCount; i += 1) {
+          // Parse Each Section
+          let dataLayout = getUleb128AndAdvance(parserState, 32)
+          match (dataLayout) {
+            0 => {
+              let expr = match (parseExpr(parserState, ParentData)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              // WasmDataSection
+              let size = getUleb128AndAdvance(parserState, 32)
+              // Get Bytes
+              if (
+                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
+              ) {
+                return Err(UnexpectedEndOfInput)
+              }
+              let content = Bytes.slice(
+                parserState.pos - 1,
+                size,
+                parserState.bytes
+              )
+              // Add To List
+              data = [Active{ memIdx: 0, offset: expr, content }, ...data]
+            },
+            1 => {
+              // WasmDataSection
+              let size = getUleb128AndAdvance(parserState, 32)
+              // Get Bytes
+              if (
+                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
+              ) {
+                return Err(UnexpectedEndOfInput)
+              }
+              let content = Bytes.slice(
+                parserState.pos - 1,
+                size,
+                parserState.bytes
+              )
+              // Add To List
+              data = [Passive{ content, }, ...data]
+            },
+            2 => {
+              // Get Memory Index
+              let memIdx = getUleb128AndAdvance(parserState, 32)
+              // Get Offset
+              let expr = match (parseExpr(parserState, ParentData)) {
+                Ok(t) => t,
+                Err(e) => return Err(e),
+              }
+              // WasmDataSection
+              let size = getUleb128AndAdvance(parserState, 32)
+              // Get Bytes
+              if (
+                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
+              ) {
+                return Err(UnexpectedEndOfInput)
+              }
+              let content = Bytes.slice(
+                parserState.pos - 1,
+                size,
+                parserState.bytes
+              )
+              // Add To List
+              data = [Active{ memIdx, offset: expr, content }, ...data]
+            },
+            _ => return Err(InvalidDataLayout(dataLayout)),
+          }
+        }
+        DataSection(List.reverse(data))
       },
     }
     // Return
     return Ok(section)
   }
 }
-// Builder
+// TODO: Builder

@@ -1,3 +1,4 @@
 *.gr.wasm
-test.gr
+t.*
+test*
 .DS_Store
