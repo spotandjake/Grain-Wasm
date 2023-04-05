@@ -21,6 +21,8 @@ enum WasmParseError {
 }
 ```
 
+Represents errors for Wasm parsing.
+
 ### Wasm.**RawSections**
 
 ```grain
@@ -41,6 +43,8 @@ enum RawSections {
 }
 ```
 
+Represents raw unparsed wasm sections.
+
 ### Wasm.**WasmExportDesc**
 
 ```grain
@@ -51,6 +55,8 @@ enum WasmExportDesc {
   GlobalExport(Number),
 }
 ```
+
+Represents wasm export descriptions
 
 ### Wasm.**WasmType**
 
@@ -69,16 +75,18 @@ enum WasmType {
 }
 ```
 
+Represents wasm primitive types.
+
 ### Wasm.**WasmInstr**
 
 ```grain
 enum WasmInstr {
   WasmInstrUnreachable,
   WasmInstrNop,
-  WasmInstrBlock(WasmType, List<WasmInstr>),
-  WasmInstrLoop(WasmType, List<WasmInstr>),
-  WasmInstrIf(WasmType, List<WasmInstr>),
-  WasmInstrIfElse(WasmType, List<WasmInstr>, List<WasmInstr>),
+  WasmInstrBlock(WasmType, Expression),
+  WasmInstrLoop(WasmType, Expression),
+  WasmInstrIf(WasmType, Expression),
+  WasmInstrIfElse(WasmType, Expression, Expression),
   WasmInstrBr(Number),
   WasmInstrBrIf(Number),
   WasmInstrBrTable(List<Number>, Number),
@@ -392,6 +400,16 @@ enum WasmInstr {
 }
 ```
 
+Represents wasm instructions and corresponding data.
+
+### Wasm.**Expression**
+
+```grain
+type Expression = List<WasmInstr>
+```
+
+Represents a wasm expression
+
 ### Wasm.**WasmTableType**
 
 ```grain
@@ -402,6 +420,8 @@ record WasmTableType {
 }
 ```
 
+Represents a wasm table.
+
 ### Wasm.**WasmGlobalType**
 
 ```grain
@@ -410,6 +430,8 @@ record WasmGlobalType {
   isMutable: Bool,
 }
 ```
+
+Represents a wasm global.
 
 ### Wasm.**WasmExportType**
 
@@ -420,6 +442,8 @@ record WasmExportType {
 }
 ```
 
+Represents a wasm export.
+
 ### Wasm.**WasmLocalType**
 
 ```grain
@@ -429,14 +453,18 @@ record WasmLocalType {
 }
 ```
 
+Represents a wasm local.
+
 ### Wasm.**WasmFunctionType**
 
 ```grain
 record WasmFunctionType {
   locals: List<WasmLocalType>,
-  body: List<WasmInstr>,
+  body: Expression,
 }
 ```
+
+Represents a wasm function.
 
 ### Wasm.**WasmElemMode**
 
@@ -445,21 +473,25 @@ enum WasmElemMode {
   ElemPassive,
   ElemActive{
     tableIdx: Number,
-    offset: List<WasmInstr>,
+    offset: Expression,
   },
   ElemDeclarative,
 }
 ```
+
+Represents a wasm elements mode.
 
 ### Wasm.**WasmElementSegment**
 
 ```grain
 record WasmElementSegment {
   wasmType: WasmType,
-  contents: List<List<WasmInstr>>,
+  contents: List<Expression>,
   elemMode: WasmElemMode,
 }
 ```
+
+Represents a wasm element segment.
 
 ### Wasm.**WasmDataSegment**
 
@@ -467,7 +499,7 @@ record WasmElementSegment {
 enum WasmDataSegment {
   DataActive{
     memIdx: Number,
-    offset: List<WasmInstr>,
+    offset: Expression,
     content: Bytes,
   },
   DataPassive{
@@ -475,6 +507,8 @@ enum WasmDataSegment {
   },
 }
 ```
+
+Represents a wasm data segment.
 
 ### Wasm.**WasmImportDesc**
 
@@ -487,6 +521,8 @@ enum WasmImportDesc {
 }
 ```
 
+Represents a wasm import description.
+
 ### Wasm.**WasmImport**
 
 ```grain
@@ -496,6 +532,8 @@ record WasmImport {
   importDesc: WasmImportDesc,
 }
 ```
+
+Represents a wasm import.
 
 ### Wasm.**Sections**
 
@@ -507,7 +545,7 @@ enum Sections {
   FunctionSection(List<Number>),
   TableSection(List<WasmTableType>),
   MemorySection(List<(Number, Option<Number>)>),
-  GlobalSection(List<(WasmGlobalType, List<WasmInstr>)>),
+  GlobalSection(List<(WasmGlobalType, Expression)>),
   ExportSection(List<WasmExportType>),
   StartSection(Number),
   ElementSection(List<WasmElementSegment>),
@@ -517,7 +555,11 @@ enum Sections {
 }
 ```
 
+Represents parsed wasm sections.
+
 ## Wasm.Parser
+
+Wasm Parsing Utils.
 
 ### Values
 
@@ -529,9 +571,37 @@ Functions and constants included in the Wasm.Parser module.
 parseModule : (rawBytes: Bytes) -> Result<List<RawSections>, WasmParseError>
 ```
 
+Parse a wasm binary into unparsed sections.
+
+Parameters:
+
+|param|type|description|
+|-----|----|-----------|
+|`rawBytes`|`Bytes`|The wasm binary to parse|
+
+Returns:
+
+|type|description|
+|----|-----------|
+|`Result<List<RawSections>, WasmParseError>`|The unparsed sections|
+
 #### Wasm.Parser.**parseSection**
 
 ```grain
 parseSection : (section: RawSections) -> Result<Sections, WasmParseError>
 ```
+
+Parse a section into a parsed wasm section.
+
+Parameters:
+
+|param|type|description|
+|-----|----|-----------|
+|`section`|`RawSections`|The unparsed section to parse|
+
+Returns:
+
+|type|description|
+|----|-----------|
+|`Result<Sections, WasmParseError>`|The parsed section|
 

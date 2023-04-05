@@ -14,6 +14,9 @@ include "runtime/unsafe/wasmf64"
 from Numbers use { coerceNumberToWasmI32 }
 from DataStructures use { tagInt16, newFloat32, newFloat64 }
 // Types
+/**
+ * Represents errors for Wasm parsing.
+ */
 provide enum WasmParseError {
   UnexpectedWasmToken(String),
   InvalidWasmType(Int16),
@@ -31,6 +34,9 @@ enum Parent {
   ParentBlock,
   ParentData,
 }
+/**
+ * Represents raw unparsed wasm sections.
+ */
 provide enum RawSections {
   RawCustomSection(Bytes),
   RawTypeSection(Bytes),
@@ -46,6 +52,9 @@ provide enum RawSections {
   RawCodeSection(Bytes),
   RawDataSection(Bytes),
 }
+/**
+ * Represents wasm export descriptions
+ */
 provide enum WasmExportDesc {
   FuncExport(Number),
   TableExport(Number),
@@ -59,6 +68,9 @@ enum WasmTypeDesc {
   VecType,
   RefType,
 }
+/**
+ * Represents wasm primitive types.
+ */
 provide enum WasmType {
   // FuncType
   WasmFuncType(List<WasmType>, List<WasmType>),
@@ -76,14 +88,17 @@ provide enum WasmType {
   EmptyType,
   TypeIdx(Number),
 }
+/**
+ * Represents wasm instructions and corresponding data.
+ */
 provide enum WasmInstr {
   // Control Instructions
   WasmInstrUnreachable,
   WasmInstrNop,
-  WasmInstrBlock(WasmType, List<WasmInstr>),
-  WasmInstrLoop(WasmType, List<WasmInstr>),
-  WasmInstrIf(WasmType, List<WasmInstr>),
-  WasmInstrIfElse(WasmType, List<WasmInstr>, List<WasmInstr>),
+  WasmInstrBlock(WasmType, Expression),
+  WasmInstrLoop(WasmType, Expression),
+  WasmInstrIf(WasmType, Expression),
+  WasmInstrIfElse(WasmType, Expression, Expression),
   WasmInstrBr(Number),
   WasmInstrBrIf(Number),
   WasmInstrBrTable(List<Number>, Number),
@@ -404,62 +419,99 @@ provide enum WasmInstr {
   // End
   WasmInstrElse,
   WasmInstrEnd,
-}
+},
+/**
+ * Represents a wasm expression
+ */
+provide type Expression = List<WasmInstr>
+/**
+ * Represents a wasm table.
+ */
 provide record WasmTableType {
   wasmType: WasmType,
   minLimit: Number,
   maxLimit: Option<Number>,
 }
+/**
+ * Represents a wasm global.
+ */
 provide record WasmGlobalType {
   wasmType: WasmType,
   isMutable: Bool,
 }
+/**
+ * Represents a wasm export.
+ */
 provide record WasmExportType {
   name: String,
   exportDesc: WasmExportDesc,
 }
+/**
+ * Represents a wasm local.
+ */
 provide record WasmLocalType {
   wasmType: WasmType,
   count: Number,
 }
+/**
+ * Represents a wasm function.
+ */
 provide record WasmFunctionType {
   locals: List<WasmLocalType>,
-  body: List<WasmInstr>,
+  body: Expression,
 }
+/**
+ * Represents a wasm elements mode.
+ */
 provide enum WasmElemMode {
   ElemPassive,
   ElemActive{
     tableIdx: Number,
-    offset: List<WasmInstr>,
+    offset: Expression,
   },
   ElemDeclarative,
 }
+/**
+ * Represents a wasm element segment.
+ */
 provide record WasmElementSegment {
   wasmType: WasmType,
-  contents: List<List<WasmInstr>>,
+  contents: List<Expression>,
   elemMode: WasmElemMode,
 }
+/**
+ * Represents a wasm data segment.
+ */
 provide enum WasmDataSegment {
   DataActive{
     memIdx: Number,
-    offset: List<WasmInstr>,
+    offset: Expression,
     content: Bytes,
   },
   DataPassive{
     content: Bytes,
   },
 }
+/**
+ * Represents a wasm import description.
+ */
 provide enum WasmImportDesc {
   WasmFuncImportDesc(Number),
   WasmTableImportDesc(WasmTableType),
   WasmMemoryImportDesc(Number, Option<Number>),
   WasmGlobalImportDesc(WasmGlobalType),
 }
+/**
+ * Represents a wasm import.
+ */
 provide record WasmImport {
   importModName: String,
   importName: String,
   importDesc: WasmImportDesc,
 }
+/**
+ * Represents parsed wasm sections.
+ */
 provide enum Sections {
   CustomSection(Bytes),
   TypeSection(List<WasmType>),
@@ -467,7 +519,7 @@ provide enum Sections {
   FunctionSection(List<Number>),
   TableSection(List<WasmTableType>),
   MemorySection(List<(Number, Option<Number>)>),
-  GlobalSection(List<(WasmGlobalType, List<WasmInstr>)>),
+  GlobalSection(List<(WasmGlobalType, Expression)>),
   ExportSection(List<WasmExportType>),
   StartSection(Number),
   ElementSection(List<WasmElementSegment>),
@@ -687,8 +739,18 @@ let loadParser = (parserState, (pos, currentByte)) => {
   parserState.currentByte = currentByte
 }
 // Parser
+/**
+ * Wasm Parsing Utils.
+ */
 provide module Parser {
-  // Parse File
+  /**
+   * Parse a wasm binary into unparsed sections.
+   *
+   * @param rawBytes: The wasm binary to parse
+   *
+   * @returns The unparsed sections
+   */
+
   provide let parseModule = rawBytes => {
     // Build Our Parser State
     let parserState = makeParser(rawBytes)
@@ -1506,6 +1568,14 @@ provide module Parser {
     }
     return Ok(List.reverse(exprs))
   }
+  /**
+   * Parse a section into a parsed wasm section.
+   *
+   * @param section: The unparsed section to parse
+   *
+   * @returns The parsed section
+   */
+
   provide let parseSection = section => {
     // Match The Section
     let section = match (section) {

@@ -32,7 +32,6 @@ Building wasm has not yet been implemented but is a planned feature.
 
 ## Other TODO's
 
-* Document with graindoc.
 * Add tests for all features.
 * Name Section Parsing
 
