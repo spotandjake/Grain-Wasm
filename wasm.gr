@@ -548,8 +548,8 @@ provide enum WasmInstr {
   WasmInstr_F32x4_Demote_F64x2_Zero,
   WasmInstr_F64x2_PromoteLow_F32x4,
   // End
-  Wasm_Instr_Else,
-  Wasm_Instr_End,
+  WasmInstr_Else,
+  WasmInstr_End,
 },
 /**
  * Represents a wasm expression
@@ -1199,8 +1199,8 @@ provide module Parser {
           match (instr) {
             Ok(instr) => {
               ifSection = [instr, ...ifSection]
-              if (instr == Wasm_Instr_Else) hasElse = true
-              if (instr == Wasm_Instr_Else || instr == Wasm_Instr_End) break
+              if (instr == WasmInstr_Else) hasElse = true
+              if (instr == WasmInstr_Else || instr == WasmInstr_End) break
             },
             Err(err) => return Err(err),
           }
@@ -2052,8 +2052,8 @@ provide module Parser {
         }
       },
       // End Instruction
-      0x05S => Ok(Wasm_Instr_Else),
-      0x0BS => Ok(Wasm_Instr_End),
+      0x05S => Ok(WasmInstr_Else),
+      0x0BS => Ok(WasmInstr_End),
       // Invalid
       c => Err(InvalidWasmInstr(c)),
     }
@@ -2065,7 +2065,7 @@ provide module Parser {
       match (instr) {
         Ok(instr) => {
           exprs = [instr, ...exprs]
-          if (instr == Wasm_Instr_End) break
+          if (instr == WasmInstr_End) break
         },
         Err(err) => return Err(err),
       }
@@ -2218,7 +2218,7 @@ provide module Parser {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
                 funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [Wasm_Instr_End, ...funcIndices]
+              funcIndices = [WasmInstr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: WasmFuncRef,
@@ -2239,7 +2239,7 @@ provide module Parser {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
                 funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [Wasm_Instr_End, ...funcIndices]
+              funcIndices = [WasmInstr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,
@@ -2265,7 +2265,7 @@ provide module Parser {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
                 funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [Wasm_Instr_End, ...funcIndices]
+              funcIndices = [WasmInstr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,
@@ -2286,7 +2286,7 @@ provide module Parser {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
                 funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [Wasm_Instr_End, ...funcIndices]
+              funcIndices = [WasmInstr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,

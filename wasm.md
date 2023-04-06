@@ -529,8 +529,8 @@ enum WasmInstr {
   WasmInstr_F64x2_ConvertLow_I32x4_U,
   WasmInstr_F32x4_Demote_F64x2_Zero,
   WasmInstr_F64x2_PromoteLow_F32x4,
-  Wasm_Instr_Else,
-  Wasm_Instr_End,
+  WasmInstr_Else,
+  WasmInstr_End,
 }
 ```
 
