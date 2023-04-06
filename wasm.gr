@@ -112,10 +112,8 @@ provide enum WasmInstr {
   WasmInstr_Br_Table(List<Number>, Number),
   WasmInstr_Return,
   WasmInstr_Call(Number),
-  // TODO: Consider making this WasmType
   WasmInstr_Call_Indirect(Number, Number),
   WasmInstr_Return_Call(Number),
-  // TODO: Consider making this WasmType
   WasmInstr_Return_Call_Indirect(Number, Number),
   // Reference Instructions
   WasmInstr_Ref_Null(WasmType),
@@ -310,7 +308,7 @@ provide enum WasmInstr {
   WasmInstr_I64_TruncSat_F32_U,
   WasmInstr_I64_TruncSat_F64_S,
   WasmInstr_I64_TruncSat_F64_U,
-  // TODO: Vector Instructions
+  // Vector Instructions
   WasmInstr_V128_Load(WasmMemoryArg),
   WasmInstr_V128_8x8_Load_S(WasmMemoryArg),
   WasmInstr_V128_8x8_Load_U(WasmMemoryArg),
@@ -2468,6 +2466,8 @@ provide module Parser {
                 size,
                 parserState.bytes
               )
+              parserState.pos += size - 1
+              nextByteU(parserState)
               // Add To List
               data = [DataActive{ memIdx: 0, offset: expr, content }, ...data]
             },
@@ -2485,6 +2485,8 @@ provide module Parser {
                 size,
                 parserState.bytes
               )
+              parserState.pos += size - 1
+              nextByteU(parserState)
               // Add To List
               data = [DataPassive{ content, }, ...data]
             },
@@ -2509,6 +2511,8 @@ provide module Parser {
                 size,
                 parserState.bytes
               )
+              parserState.pos += size - 1
+              nextByteU(parserState)
               // Add To List
               data = [DataActive{ memIdx, offset: expr, content }, ...data]
             },
