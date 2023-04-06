@@ -24,14 +24,14 @@ print(sections)
 An odd thing you may notice about the parser is that it is implemented in two stages one stage to parse the file into section and one stage to parse the data out of each respective section this design decision was made to allow for more speed and flexibility, there are a lot of jobs such as parsing the import section that are not needed for every program the layout of the parser allows the user to skip these sections if they are not needed.
 
 ## Parsing Support
-Currently we support most of the wasm spec, along with the tail call spec, Things left to add include but are not limited to:
-- [ ] Vector Instructions
+Currently we support most of the wasm spec, along with the tail call spec, As we do not have tests not of this has been fully tested yet thought.
 
 ## Builder Support
 Building wasm has not yet been implemented but is a planned feature.
 
 ## Other TODO's
 
+* Generate a parser from and builder from the spec
 * Add tests for all features.
 * Name Section Parsing
 

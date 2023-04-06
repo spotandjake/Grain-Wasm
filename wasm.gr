@@ -9,10 +9,11 @@ include "runtime/numbers"
 include "runtime/dataStructures"
 include "runtime/debugPrint"
 include "runtime/unsafe/wasmi32"
+include "runtime/unsafe/wasmi64"
 include "runtime/unsafe/wasmf32"
 include "runtime/unsafe/wasmf64"
 from Numbers use { coerceNumberToWasmI32 }
-from DataStructures use { tagInt16, newFloat32, newFloat64 }
+from DataStructures use { tagInt16, newInt64, newFloat32, newFloat64 }
 // Types
 /**
  * Represents errors for Wasm parsing.
@@ -61,6 +62,13 @@ provide enum WasmExportDesc {
   MemoryExport(Number),
   GlobalExport(Number),
 }
+/**
+ * Represents wasm memory argument
+ */
+provide record WasmMemoryArg {
+  align: Number,
+  offset: Number,
+}
 enum WasmTypeDesc {
   AllType,
   FuncType,
@@ -93,332 +101,455 @@ provide enum WasmType {
  */
 provide enum WasmInstr {
   // Control Instructions
-  WasmInstrUnreachable,
-  WasmInstrNop,
-  WasmInstrBlock(WasmType, Expression),
-  WasmInstrLoop(WasmType, Expression),
-  WasmInstrIf(WasmType, Expression),
-  WasmInstrIfElse(WasmType, Expression, Expression),
-  WasmInstrBr(Number),
-  WasmInstrBrIf(Number),
-  WasmInstrBrTable(List<Number>, Number),
-  WasmInstrReturn,
-  WasmInstrCall(Number),
+  WasmInstr_Unreachable,
+  WasmInstr_Nop,
+  WasmInstr_Block(WasmType, Expression),
+  WasmInstr_Loop(WasmType, Expression),
+  WasmInstr_If(WasmType, Expression),
+  WasmInstr_If_Else(WasmType, Expression, Expression),
+  WasmInstr_Br(Number),
+  WasmInstr_Br_If(Number),
+  WasmInstr_Br_Table(List<Number>, Number),
+  WasmInstr_Return,
+  WasmInstr_Call(Number),
   // TODO: Consider making this WasmType
-  WasmInstrCallIndirect(Number, Number),
-  WasmInstrReturnCall(Number),
+  WasmInstr_Call_Indirect(Number, Number),
+  WasmInstr_Return_Call(Number),
   // TODO: Consider making this WasmType
-  WasmInstrReturnCallIndirect(Number, Number),
+  WasmInstr_Return_Call_Indirect(Number, Number),
   // Reference Instructions
-  WasmInstrRefNull(WasmType),
-  WasmInstrRefIsNUll,
-  WasmInstrRefFunc(Number),
+  WasmInstr_Ref_Null(WasmType),
+  WasmInstr_Ref_Is_Null,
+  WasmInstr_Ref_Func(Number),
   // Parametric Instructions
-  WasmInstrDrop,
-  WasmInstrSelect(Option<List<WasmType>>),
+  WasmInstr_Drop,
+  WasmInstr_Select(Option<List<WasmType>>),
   // Variable Instructions
-  WasmInstrLocalGet(Number),
-  WasmInstrLocalSet(Number),
-  WasmInstrLocalTee(Number),
-  WasmInstrGlobalGet(Number),
-  WasmInstrGlobalSet(Number),
+  WasmInstr_Local_Get(Number),
+  WasmInstr_Local_Set(Number),
+  WasmInstr_Local_Tee(Number),
+  WasmInstr_Global_Get(Number),
+  WasmInstr_Global_Set(Number),
   // Table Instructions
-  WasmInstrTableGet(Number),
-  WasmInstrTableSet(Number),
-  WasmInstrTableInit(Number, Number),
-  WasmInstrElemDrop(Number),
-  WasmInstrTableCopy(Number, Number),
-  WasmInstrTableGrow(Number),
-  WasmInstrTableSize(Number),
-  WasmInstrTableFill(Number),
+  WasmInstr_Table_Get(Number),
+  WasmInstr_Table_Set(Number),
+  WasmInstr_Table_Init(Number, Number),
+  WasmInstr_Elem_Drop(Number),
+  WasmInstr_Table_Copy(Number, Number),
+  WasmInstr_Table_Grow(Number),
+  WasmInstr_Table_Size(Number),
+  WasmInstr_Table_Fill(Number),
   // Memory Instructions
-  WasmInstrI32Load{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrF32Load{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrF64Load{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Load8S{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Load8U{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Load16S{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Load16U{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load8S{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load8U{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load16S{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load16U{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load32S{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Load32U{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Store{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Store{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrF32Store{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrF64Store{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Store8{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI32Store16{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Store8{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Store16{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrI64Store32{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrMemorySize,
-  WasmInstrMemoryGrow,
-  WasmInstrMemoryInit(Number),
-  WasmInstrDataDrop(Number),
-  WasmInstrMemoryCopy,
-  WasmInstrMemoryFill,
+  WasmInstr_I32_Load(WasmMemoryArg),
+  WasmInstr_I64_Load(WasmMemoryArg),
+  WasmInstr_F32_Load(WasmMemoryArg),
+  WasmInstr_F64_Load(WasmMemoryArg),
+  WasmInstr_I32_Load8_S(WasmMemoryArg),
+  WasmInstr_I32_Load8_U(WasmMemoryArg),
+  WasmInstr_I32_Load16_S(WasmMemoryArg),
+  WasmInstr_I32_Load16_U(WasmMemoryArg),
+  WasmInstr_I64_Load8_S(WasmMemoryArg),
+  WasmInstr_I64_Load8_U(WasmMemoryArg),
+  WasmInstr_I64_Load16_S(WasmMemoryArg),
+  WasmInstr_I64_Load16_U(WasmMemoryArg),
+  WasmInstr_I64_Load32_S(WasmMemoryArg),
+  WasmInstr_I64_Load32_U(WasmMemoryArg),
+  WasmInstr_I32_Store(WasmMemoryArg),
+  WasmInstr_I64_Store(WasmMemoryArg),
+  WasmInstr_F32_Store(WasmMemoryArg),
+  WasmInstr_F64_Store(WasmMemoryArg),
+  WasmInstr_I32_Store8(WasmMemoryArg),
+  WasmInstr_I32_Store16(WasmMemoryArg),
+  WasmInstr_I64_Store8(WasmMemoryArg),
+  WasmInstr_I64_Store16(WasmMemoryArg),
+  WasmInstr_I64_Store32(WasmMemoryArg),
+  WasmInstr_Memory_Size,
+  WasmInstr_Memory_Grow,
+  WasmInstr_Memory_Init(Number),
+  WasmInstr_Data_Drop(Number),
+  WasmInstr_Memory_Copy,
+  WasmInstr_Memory_Fill,
   // Numeric Instructions
-  WasmInstrI32Const(Number),
-  WasmInstrI64Const(Number),
-  WasmInstrF32Const(Number),
-  WasmInstrF64Const(Number),
-  WasmInstrI32Eqz,
-  WasmInstrI32Eq,
-  WasmInstrI32Ne,
-  WasmInstrI32LtS,
-  WasmInstrI32LtU,
-  WasmInstrI32GtS,
-  WasmInstrI32GtU,
-  WasmInstrI32LeS,
-  WasmInstrI32LeU,
-  WasmInstrI32GeS,
-  WasmInstrI32GeU,
-  WasmInstrI64Eqz,
-  WasmInstrI64Eq,
-  WasmInstrI64Ne,
-  WasmInstrI64LtS,
-  WasmInstrI64LtU,
-  WasmInstrI64GtS,
-  WasmInstrI64GtU,
-  WasmInstrI64LeS,
-  WasmInstrI64LeU,
-  WasmInstrI64GeS,
-  WasmInstrI64GeU,
-  WasmInstrF32Eq,
-  WasmInstrF32Ne,
-  WasmInstrF32Lt,
-  WasmInstrF32Gt,
-  WasmInstrF32Le,
-  WasmInstrF32Ge,
-  WasmInstrF64Eq,
-  WasmInstrF64Ne,
-  WasmInstrF64Lt,
-  WasmInstrF64Gt,
-  WasmInstrF64Le,
-  WasmInstrF64Ge,
-  WasmInstrI32Clz,
-  WasmInstrI32Ctz,
-  WasmInstrI32Popcnt,
-  WasmInstrI32Add,
-  WasmInstrI32Sub,
-  WasmInstrI32Mul,
-  WasmInstrI32DivS,
-  WasmInstrI32DivU,
-  WasmInstrI32RemS,
-  WasmInstrI32RemU,
-  WasmInstrI32And,
-  WasmInstrI32Or,
-  WasmInstrI32Xor,
-  WasmInstrI32Shl,
-  WasmInstrI32ShrS,
-  WasmInstrI32ShrU,
-  WasmInstrI32Rotl,
-  WasmInstrI32Rotr,
-  WasmInstrI64Clz,
-  WasmInstrI64Ctz,
-  WasmInstrI64Popcnt,
-  WasmInstrI64Add,
-  WasmInstrI64Sub,
-  WasmInstrI64Mul,
-  WasmInstrI64DivS,
-  WasmInstrI64DivU,
-  WasmInstrI64RemS,
-  WasmInstrI64RemU,
-  WasmInstrI64And,
-  WasmInstrI64Or,
-  WasmInstrI64Xor,
-  WasmInstrI64Shl,
-  WasmInstrI64ShrS,
-  WasmInstrI64ShrU,
-  WasmInstrI64Rotl,
-  WasmInstrI64Rotr,
-  WasmInstrF32Abs,
-  WasmInstrF32Neg,
-  WasmInstrF32Ceil,
-  WasmInstrF32Floor,
-  WasmInstrF32Trunc,
-  WasmInstrF32Nearest,
-  WasmInstrF32Sqrt,
-  WasmInstrF32Add,
-  WasmInstrF32Sub,
-  WasmInstrF32Mul,
-  WasmInstrF32Div,
-  WasmInstrF32Min,
-  WasmInstrF32Max,
-  WasmInstrF32CopySign,
-  WasmInstrF64Abs,
-  WasmInstrF64Neg,
-  WasmInstrF64Ceil,
-  WasmInstrF64Floor,
-  WasmInstrF64Trunc,
-  WasmInstrF64Nearest,
-  WasmInstrF64Sqrt,
-  WasmInstrF64Add,
-  WasmInstrF64Sub,
-  WasmInstrF64Mul,
-  WasmInstrF64Div,
-  WasmInstrF64Min,
-  WasmInstrF64Max,
-  WasmInstrF64CopySign,
-  WasmInstrI32WrapI64,
-  WasmInstrI32TruncF32S,
-  WasmInstrI32TruncF32U,
-  WasmInstrI32TruncF64S,
-  WasmInstrI32TruncF64U,
-  WasmInstrI64ExtendI32S,
-  WasmInstrI64ExtendI32U,
-  WasmInstrI64TruncF32S,
-  WasmInstrI64TruncF32U,
-  WasmInstrI64TruncF64S,
-  WasmInstrI64TruncF64U,
-  WasmInstrF32ConvertI32S,
-  WasmInstrF32ConvertI32U,
-  WasmInstrF32ConvertI64S,
-  WasmInstrF32ConvertI64U,
-  WasmInstrF32DemoteF64,
-  WasmInstrF64ConvertI32S,
-  WasmInstrF64ConvertI32U,
-  WasmInstrF64ConvertI64S,
-  WasmInstrF64ConvertI64U,
-  WasmInstrF64PromoteF32,
-  WasmInstrI32ReinterpretF32,
-  WasmInstrI64ReinterpretF64,
-  WasmInstrF32ReinterpretI32,
-  WasmInstrF64ReinterpretI64,
-  WasmInstrI32Extend8S,
-  WasmInstrI32Extend16S,
-  WasmInstrI64Extend8S,
-  WasmInstrI64Extend16S,
-  WasmInstrI64Extend32S,
-  WasmInstrI32TruncSatF32S,
-  WasmInstrI32TruncSatF32U,
-  WasmInstrI32TruncSatF64S,
-  WasmInstrI32TruncSatF64U,
-  WasmInstrI64TruncSatF32S,
-  WasmInstrI64TruncSatF32U,
-  WasmInstrI64TruncSatF64S,
-  WasmInstrI64TruncSatF64U,
+  WasmInstr_I32_Const(Number),
+  WasmInstr_I64_Const(Number),
+  WasmInstr_F32_Const(Number),
+  WasmInstr_F64_Const(Number),
+  WasmInstr_I32_Eqz,
+  WasmInstr_I32_Eq,
+  WasmInstr_I32_Ne,
+  WasmInstr_I32_Lt_S,
+  WasmInstr_I32_Lt_U,
+  WasmInstr_I32_Gt_S,
+  WasmInstr_I32_Gt_U,
+  WasmInstr_I32_Le_S,
+  WasmInstr_I32_Le_U,
+  WasmInstr_I32_Ge_S,
+  WasmInstr_I32_Ge_U,
+  WasmInstr_I64_Eqz,
+  WasmInstr_I64_Eq,
+  WasmInstr_I64_Ne,
+  WasmInstr_I64_Lt_S,
+  WasmInstr_I64_Lt_U,
+  WasmInstr_I64_Gt_S,
+  WasmInstr_I64_Gt_U,
+  WasmInstr_I64_Le_S,
+  WasmInstr_I64_Le_U,
+  WasmInstr_I64_Ge_S,
+  WasmInstr_I64_Ge_U,
+  WasmInstr_F32_Eq,
+  WasmInstr_F32_Ne,
+  WasmInstr_F32_Lt,
+  WasmInstr_F32_Gt,
+  WasmInstr_F32_Le,
+  WasmInstr_F32_Ge,
+  WasmInstr_F64_Eq,
+  WasmInstr_F64_Ne,
+  WasmInstr_F64_Lt,
+  WasmInstr_F64_Gt,
+  WasmInstr_F64_Le,
+  WasmInstr_F64_Ge,
+  WasmInstr_I32_Clz,
+  WasmInstr_I32_Ctz,
+  WasmInstr_I32_Popcnt,
+  WasmInstr_I32_Add,
+  WasmInstr_I32_Sub,
+  WasmInstr_I32_Mul,
+  WasmInstr_I32_Div_S,
+  WasmInstr_I32_Div_U,
+  WasmInstr_I32_Rem_S,
+  WasmInstr_I32_Rem_U,
+  WasmInstr_I32_And,
+  WasmInstr_I32_Or,
+  WasmInstr_I32_Xor,
+  WasmInstr_I32_Shl,
+  WasmInstr_I32_Shr_S,
+  WasmInstr_I32_Shr_U,
+  WasmInstr_I32_Rotl,
+  WasmInstr_I32_Rotr,
+  WasmInstr_I64_Clz,
+  WasmInstr_I64_Ctz,
+  WasmInstr_I64_Popcnt,
+  WasmInstr_I64_Add,
+  WasmInstr_I64_Sub,
+  WasmInstr_I64_Mul,
+  WasmInstr_I64_Div_S,
+  WasmInstr_I64_Div_U,
+  WasmInstr_I64_Rem_S,
+  WasmInstr_I64_Rem_U,
+  WasmInstr_I64_And,
+  WasmInstr_I64_Or,
+  WasmInstr_I64_Xor,
+  WasmInstr_I64_Shl,
+  WasmInstr_I64_Shr_S,
+  WasmInstr_I64_Shr_U,
+  WasmInstr_I64_Rotl,
+  WasmInstr_I64_Rotr,
+  WasmInstr_F32_Abs,
+  WasmInstr_F32_Neg,
+  WasmInstr_F32_Ceil,
+  WasmInstr_F32_Floor,
+  WasmInstr_F32_Trunc,
+  WasmInstr_F32_Nearest,
+  WasmInstr_F32_Sqrt,
+  WasmInstr_F32_Add,
+  WasmInstr_F32_Sub,
+  WasmInstr_F32_Mul,
+  WasmInstr_F32_Div,
+  WasmInstr_F32_Min,
+  WasmInstr_F32_Max,
+  WasmInstr_F32_CopySign,
+  WasmInstr_F64_Abs,
+  WasmInstr_F64_Neg,
+  WasmInstr_F64_Ceil,
+  WasmInstr_F64_Floor,
+  WasmInstr_F64_Trunc,
+  WasmInstr_F64_Nearest,
+  WasmInstr_F64_Sqrt,
+  WasmInstr_F64_Add,
+  WasmInstr_F64_Sub,
+  WasmInstr_F64_Mul,
+  WasmInstr_F64_Div,
+  WasmInstr_F64_Min,
+  WasmInstr_F64_Max,
+  WasmInstr_F64_CopySign,
+  WasmInstr_I32_Wrap_I64,
+  WasmInstr_I32_Trunc_F32_S,
+  WasmInstr_I32_Trunc_F32_U,
+  WasmInstr_I32_Trunc_F64_S,
+  WasmInstr_I32_Trunc_F64_U,
+  WasmInstr_I64_Extend_I32_S,
+  WasmInstr_I64_Extend_I32_U,
+  WasmInstr_I64_Trunc_F32_S,
+  WasmInstr_I64_Trunc_F32_U,
+  WasmInstr_I64_Trunc_F64_S,
+  WasmInstr_I64_Trunc_F64_U,
+  WasmInstr_F32_Convert_I32_S,
+  WasmInstr_F32_Convert_I32_U,
+  WasmInstr_F32_Convert_I64_S,
+  WasmInstr_F32_Convert_I64_U,
+  WasmInstr_F32_Demote_F64,
+  WasmInstr_F64_Convert_I32_S,
+  WasmInstr_F64_Convert_I32_U,
+  WasmInstr_F64_Convert_I64_S,
+  WasmInstr_F64_Convert_I64_U,
+  WasmInstr_F64_Promote_F32,
+  WasmInstr_I32_Reinterpret_F32,
+  WasmInstr_I64_Reinterpret_F64,
+  WasmInstr_F32_Reinterpret_I32,
+  WasmInstr_F64_Reinterpret_I64,
+  WasmInstr_I32_Extend8_S,
+  WasmInstr_I32_Extend16_S,
+  WasmInstr_I64_Extend8_S,
+  WasmInstr_I64_Extend16_S,
+  WasmInstr_I64_Extend32_S,
+  WasmInstr_I32_TruncSat_F32_S,
+  WasmInstr_I32_TruncSat_F32_U,
+  WasmInstr_I32_TruncSat_F64_S,
+  WasmInstr_I32_TruncSat_F64_U,
+  WasmInstr_I64_TruncSat_F32_S,
+  WasmInstr_I64_TruncSat_F32_U,
+  WasmInstr_I64_TruncSat_F64_S,
+  WasmInstr_I64_TruncSat_F64_U,
   // TODO: Vector Instructions
-  WasmInstrV128_Load{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_8x8SLoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_8x8ULoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_16x4SLoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_16x4ULoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_32x2SLoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_32x2ULoad{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_Load_8_Splat{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_Load_16_Splat{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_Load_32_Splat{
-    align: Number,
-    offset: Number,
-  },
-  WasmInstrV128_Load_64_Splat{
-    align: Number,
-    offset: Number,
-  },
+  WasmInstr_V128_Load(WasmMemoryArg),
+  WasmInstr_V128_8x8_Load_S(WasmMemoryArg),
+  WasmInstr_V128_8x8_Load_U(WasmMemoryArg),
+  WasmInstr_V128_16x4_Load_S(WasmMemoryArg),
+  WasmInstr_V128_16x4_Load_U(WasmMemoryArg),
+  WasmInstr_V128_32x2_Load_S(WasmMemoryArg),
+  WasmInstr_V128_32x2_Load_U(WasmMemoryArg),
+  WasmInstr_V128_Load_8_Splat(WasmMemoryArg),
+  WasmInstr_V128_Load_16_Splat(WasmMemoryArg),
+  WasmInstr_V128_Load_32_Splat(WasmMemoryArg),
+  WasmInstr_V128_Load_64_Splat(WasmMemoryArg),
+  WasmInstr_Load_32_Zero(WasmMemoryArg),
+  WasmInstr_Load_64_Zero(WasmMemoryArg),
+  WasmInstr_V128_Store(WasmMemoryArg),
+  WasmInstr_V128_Load8_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Load16_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Load32_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Load64_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Store8_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Store16_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Store32_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Store64_Lane(WasmMemoryArg, Number),
+  WasmInstr_V128_Const(Number),
+  WasmInstr_I8x16_Shuffle(Number),
+  WasmInstr_I8x16_Extract_Lane_S(Number),
+  WasmInstr_I8x16_Extract_Lane_U(Number),
+  WasmInstr_I8x16_Replace_Lane(Number),
+  WasmInstr_I16x8_Extract_Lane_S(Number),
+  WasmInstr_I16x8_Extract_Lane_U(Number),
+  WasmInstr_I16x8_Replace_Lane(Number),
+  WasmInstr_I32x4_Extract_Lane(Number),
+  WasmInstr_I32x4_Replace_Lane(Number),
+  WasmInstr_I64x2_Extract_Lane(Number),
+  WasmInstr_I64x2_Replace_Lane(Number),
+  WasmInstr_F32x4_Extract_Lane(Number),
+  WasmInstr_F32x4_Replace_Lane(Number),
+  WasmInstr_F64x2_Extract_Lane(Number),
+  WasmInstr_F64x2_Replace_Lane(Number),
+  WasmInstr_I8x16_Swizzle,
+  WasmInstr_I8x16_Splat,
+  WasmInstr_I16x8_Splat,
+  WasmInstr_I32x4_Splat,
+  WasmInstr_I64x2_Splat,
+  WasmInstr_F32x4_Splat,
+  WasmInstr_F64x2_Splat,
+  WasmInstr_I8x16_Eq,
+  WasmInstr_I8x16_Ne,
+  WasmInstr_I8x16_Lt_S,
+  WasmInstr_I8x16_Lt_U,
+  WasmInstr_I8x16_Gt_S,
+  WasmInstr_I8x16_Gt_U,
+  WasmInstr_I8x16_Le_S,
+  WasmInstr_I8x16_Le_U,
+  WasmInstr_I8x16_Ge_S,
+  WasmInstr_I8x16_Ge_U,
+  WasmInstr_I16x8_Eq,
+  WasmInstr_I16x8_Ne,
+  WasmInstr_I16x8_Lt_S,
+  WasmInstr_I16x8_Lt_U,
+  WasmInstr_I16x8_Gt_S,
+  WasmInstr_I16x8_Gt_U,
+  WasmInstr_I16x8_Le_S,
+  WasmInstr_I16x8_Le_U,
+  WasmInstr_I16x8_Ge_S,
+  WasmInstr_I16x8_Ge_U,
+  WasmInstr_I32x4_Eq,
+  WasmInstr_I32x4_Ne,
+  WasmInstr_I32x4_Lt_S,
+  WasmInstr_I32x4_Lt_U,
+  WasmInstr_I32x4_Gt_S,
+  WasmInstr_I32x4_Gt_U,
+  WasmInstr_I32x4_Le_S,
+  WasmInstr_I32x4_Le_U,
+  WasmInstr_I32x4_Ge_S,
+  WasmInstr_I32x4_Ge_U,
+  WasmInstr_I64x2_Eq,
+  WasmInstr_I64x2_Ne,
+  WasmInstr_I64x2_Lt_S,
+  WasmInstr_I64x2_Gt_S,
+  WasmInstr_I64x2_Le_S,
+  WasmInstr_I64x2_Ge_S,
+  WasmInstr_F32x4_Eq,
+  WasmInstr_F32x4_Ne,
+  WasmInstr_F32x4_Lt,
+  WasmInstr_F32x4_Gt,
+  WasmInstr_F32x4_Le,
+  WasmInstr_F32x4_Ge,
+  WasmInstr_F64x2_Eq,
+  WasmInstr_F64x2_Ne,
+  WasmInstr_F64x2_Lt,
+  WasmInstr_F64x2_Gt,
+  WasmInstr_F64x2_Le,
+  WasmInstr_F64x2_Ge,
+  WasmInstr_V128_Not,
+  WasmInstr_V128_And,
+  WasmInstr_V128_And_Not,
+  WasmInstr_V128_Or,
+  WasmInstr_V128_Xor,
+  WasmInstr_V128_Bitselect,
+  WasmInstr_V128_Any_True,
+  WasmInstr_I8x16_Abs,
+  WasmInstr_I8x16_Neg,
+  WasmInstr_I8x16_Popcnt,
+  WasmInstr_I8x16_All_True,
+  WasmInstr_I8x16_Bitmask,
+  WasmInstr_I8x16_Narrow_I16x8_S,
+  WasmInstr_I8x16_Narrow_I16x8_U,
+  WasmInstr_I8x16_Shl,
+  WasmInstr_I8x16_Shr_S,
+  WasmInstr_I8x16_Shr_U,
+  WasmInstr_I8x16_Add,
+  WasmInstr_I8x16_Add_Sat_S,
+  WasmInstr_I8x16_Add_Sat_U,
+  WasmInstr_I8x16_Sub,
+  WasmInstr_I8x16_Sub_Sat_S,
+  WasmInstr_I8x16_Sub_Sat_U,
+  WasmInstr_I8x16_Min_S,
+  WasmInstr_I8x16_Min_U,
+  WasmInstr_I8x16_Max_S,
+  WasmInstr_I8x16_Max_U,
+  WasmInstr_I8x16_Avgr_U,
+  WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_S,
+  WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_U,
+  WasmInstr_I16x8_Abs,
+  WasmInstr_I16x8_Neg,
+  WasmInstr_I16x8_q15mulr_sat_s,
+  WasmInstr_I16x8_All_True,
+  WasmInstr_I16x8_Bitmask,
+  WasmInstr_I16x8_Narrow_I32x4_S,
+  WasmInstr_I16x8_Narrow_I32x4_U,
+  WasmInstr_I16x8_Extend_Low_I8x16_S,
+  WasmInstr_I16x8_Extend_High_I8x16_S,
+  WasmInstr_I16x8_Extend_Low_I8x16_U,
+  WasmInstr_I16x8_Extend_High_I8x16_U,
+  WasmInstr_I16x8_Shl,
+  WasmInstr_I16x8_Shr_S,
+  WasmInstr_I16x8_Shr_U,
+  WasmInstr_I16x8_Add,
+  WasmInstr_I16x8_Add_Sat_S,
+  WasmInstr_I16x8_Add_Sat_U,
+  WasmInstr_I16x8_Sub,
+  WasmInstr_I16x8_Sub_Sat_S,
+  WasmInstr_I16x8_Sub_Sat_U,
+  WasmInstr_I16x8_Mul,
+  WasmInstr_I16x8_Min_S,
+  WasmInstr_I16x8_Min_U,
+  WasmInstr_I16x8_Max_S,
+  WasmInstr_I16x8_Max_U,
+  WasmInstr_I16x8_Avgr_U,
+  WasmInstr_I16x8_ExtMulLow_I8x16_S,
+  WasmInstr_I16x8_ExtMulHigh_I8x16_S,
+  WasmInstr_I16x8_ExtMulLow_I8x16_U,
+  WasmInstr_I16x8_ExtMulHigh_I8x16_U,
+  WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_S,
+  WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_U,
+  WasmInstr_I32x4_Abs,
+  WasmInstr_I32x4_Neg,
+  WasmInstr_I32x4_All_True,
+  WasmInstr_I32x4_Bitmask,
+  WasmInstr_I32x4_Extend_Low_I16x8_S,
+  WasmInstr_I32x4_Extend_High_I16x8_S,
+  WasmInstr_I32x4_Extend_Low_I16x8_U,
+  WasmInstr_I32x4_Extend_High_I16x8_U,
+  WasmInstr_I32x4_Shl,
+  WasmInstr_I32x4_Shr_S,
+  WasmInstr_I32x4_Shr_U,
+  WasmInstr_I32x4_Add,
+  WasmInstr_I32x4_Sub,
+  WasmInstr_I32x4_Mul,
+  WasmInstr_I32x4_Min_S,
+  WasmInstr_I32x4_Min_U,
+  WasmInstr_I32x4_Max_S,
+  WasmInstr_I32x4_Max_U,
+  WasmInstr_I32x4_Dot_I16x8_S,
+  WasmInstr_I32x4_ExtMulLow_I16x8_S,
+  WasmInstr_I32x4_ExtMulHigh_I16x8_S,
+  WasmInstr_I32x4_ExtMulLow_I16x8_U,
+  WasmInstr_I32x4_ExtMulHigh_I16x8_U,
+  WasmInstr_I64x2_Abs,
+  WasmInstr_I64x2_Neg,
+  WasmInstr_I64x2_All_True,
+  WasmInstr_I64x2_Bitmask,
+  WasmInstr_I64x2_Extend_Low_I32x4_S,
+  WasmInstr_I64x2_Extend_High_I32x4_S,
+  WasmInstr_I64x2_Extend_Low_I32x4_U,
+  WasmInstr_I64x2_Extend_High_I32x4_U,
+  WasmInstr_I64x2_Shl,
+  WasmInstr_I64x2_Shr_S,
+  WasmInstr_I64x2_Shr_U,
+  WasmInstr_I64x2_Add,
+  WasmInstr_I64x2_Sub,
+  WasmInstr_I64x2_Mul,
+  WasmInstr_I64x2_ExtMulLow_I32x4_S,
+  WasmInstr_I64x2_ExtMulHigh_I32x4_S,
+  WasmInstr_I64x2_ExtMulLow_I32x4_U,
+  WasmInstr_I64x2_ExtMulHigh_I32x4_U,
+  WasmInstr_F32x4_Ceil,
+  WasmInstr_F32x4_Floor,
+  WasmInstr_F32x4_Trunc,
+  WasmInstr_F32x4_Nearest,
+  WasmInstr_F32x4_Abs,
+  WasmInstr_F32x4_Neg,
+  WasmInstr_F32x4_Sqrt,
+  WasmInstr_F32x4_Add,
+  WasmInstr_F32x4_Sub,
+  WasmInstr_F32x4_Mul,
+  WasmInstr_F32x4_Div,
+  WasmInstr_F32x4_Min,
+  WasmInstr_F32x4_Max,
+  WasmInstr_F32x4_Pmin,
+  WasmInstr_F32x4_Pmax,
+  WasmInstr_F64x2_Ceil,
+  WasmInstr_F64x2_Floor,
+  WasmInstr_F64x2_Trunc,
+  WasmInstr_F64x2_Nearest,
+  WasmInstr_F64x2_Abs,
+  WasmInstr_F64x2_Neg,
+  WasmInstr_F64x2_Sqrt,
+  WasmInstr_F64x2_Add,
+  WasmInstr_F64x2_Sub,
+  WasmInstr_F64x2_Mul,
+  WasmInstr_F64x2_Div,
+  WasmInstr_F64x2_Min,
+  WasmInstr_F64x2_Max,
+  WasmInstr_F64x2_Pmin,
+  WasmInstr_F64x2_Pmax,
+  WasmInstr_I32x4_Trunc_Sat_F32x4_S,
+  WasmInstr_I32x4_Trunc_Sat_F32x4_U,
+  WasmInstr_F32x4_Convert_I32x4_S,
+  WasmInstr_F32x4_Convert_I32x4_U,
+  WasmInstr_I32x4_Trunc_Sat_F64x2_S_Zero,
+  WasmInstr_I32x4_Trunc_Sat_F64x2_U_Zero,
+  WasmInstr_F64x2_ConvertLow_I32x4_S,
+  WasmInstr_F64x2_ConvertLow_I32x4_U,
+  WasmInstr_F32x4_Demote_F64x2_Zero,
+  WasmInstr_F64x2_PromoteLow_F32x4,
   // End
-  WasmInstrElse,
-  WasmInstrEnd,
+  Wasm_Instr_Else,
+  Wasm_Instr_End,
 },
 /**
  * Represents a wasm expression
@@ -615,6 +746,11 @@ let readByte = (idx: Number, bytes: Bytes) => {
     tagInt16(n)
   }
 }
+/**
+ * Reads the next byte from the parser state.
+ *
+ * This uses Int16 over Int8 or Uint8 because we want to support -1 for end of input, but we need to support the entire range of Uint8
+ */
 let nextByteU = parserState => {
   let mut c = parserState.currentByte
   if (c != _END_OF_INPUT) {
@@ -658,7 +794,7 @@ let nextF64 = parserState => {
   if (offset + _FLOAT64_BYTE_SIZE > size) {
     Err(UnexpectedEndOfInput)
   } else {
-    // Get Our Float32
+    // Get Our Float64
     let n = WasmF64.load(ptr + offset, _VALUE_OFFSET)
     // Set The CurrentByte
     parserState.currentByte = readByte(lastBytePos, parserState.bytes)
@@ -666,6 +802,34 @@ let nextF64 = parserState => {
     Ok(WasmI32.toGrain(newFloat64(n)): Number)
   }
 }
+@unsafe
+let nextI128 = parserState => {
+  // TODO: Verify This Logic
+  parserState.pos += 16
+  let lastBytePos = parserState.pos - 1
+  let bytes = parserState.bytes
+  from WasmI32 use { add as (+), sub as (-), gtS as (>) }
+  let ptr = WasmI32.fromGrain(bytes)
+  let size = WasmI32.load(ptr, _SIZE_OFFSET)
+  let offset = coerceNumberToWasmI32(parserState.pos) - 16n
+  if (offset + _FLOAT64_BYTE_SIZE > size) {
+    Err(UnexpectedEndOfInput)
+  } else {
+    // Get Our Float32
+    let lower = WasmI64.load(ptr + offset, _VALUE_OFFSET)
+    let upper = WasmI64.load(ptr + offset + 8n, _VALUE_OFFSET)
+    // Set The CurrentByte
+    parserState.currentByte = readByte(lastBytePos, parserState.bytes)
+    // Build our Number
+    let lower = WasmI32.toGrain(newInt64(lower)): Number
+    let upper = WasmI32.toGrain(newInt64(upper)): Number
+    // TODO: Verify all this logic works
+    let n = lower | upper << 64
+    // Return
+    Ok(n)
+  }
+}
+
 let getUleb128AndAdvance = (parserState, limit) => {
   // TODO: Optimize this using unsafe
   // TODO: Enforce limit
@@ -791,7 +955,6 @@ provide module Parser {
     // Parse Sections
     let mut wasmFile = []
     while (!isAtEndOfInput(parserState)) {
-      from Int16 use { (<), (>) }
       let sectionID = parserState.currentByte
       nextByteU(parserState)
       // Validate SectionID
@@ -992,15 +1155,15 @@ provide module Parser {
   let parseMemArg = parserState => {
     let align = getUleb128AndAdvance(parserState, 32)
     let offset = getUleb128AndAdvance(parserState, 32)
-    return (align, offset)
+    return { align, offset }: WasmMemoryArg
   }
   let rec parseInstr = parserState => {
     let c = parserState.currentByte
     nextByteU(parserState)
     return match (c) {
       // Control Expression
-      0x00S => Ok(WasmInstrUnreachable),
-      0x01S => Ok(WasmInstrNop),
+      0x00S => Ok(WasmInstr_Unreachable),
+      0x01S => Ok(WasmInstr_Nop),
       0x02S => {
         let blockType = match (parseBlockType(parserState)) {
           Ok(t) => t,
@@ -1008,7 +1171,7 @@ provide module Parser {
         }
         let exprs = parseExpr(parserState, ParentBlock)
         match (exprs) {
-          Ok(exprs) => Ok(WasmInstrBlock(blockType, exprs)),
+          Ok(exprs) => Ok(WasmInstr_Block(blockType, exprs)),
           Err(err) => return Err(err),
         }
       },
@@ -1019,7 +1182,7 @@ provide module Parser {
         }
         let exprs = parseExpr(parserState, ParentBlock)
         match (exprs) {
-          Ok(exprs) => Ok(WasmInstrLoop(blockType, exprs)),
+          Ok(exprs) => Ok(WasmInstr_Loop(blockType, exprs)),
           Err(err) => return Err(err),
         }
       },
@@ -1036,8 +1199,8 @@ provide module Parser {
           match (instr) {
             Ok(instr) => {
               ifSection = [instr, ...ifSection]
-              if (instr == WasmInstrElse) hasElse = true
-              if (instr == WasmInstrElse || instr == WasmInstrEnd) break
+              if (instr == Wasm_Instr_Else) hasElse = true
+              if (instr == Wasm_Instr_Else || instr == Wasm_Instr_End) break
             },
             Err(err) => return Err(err),
           }
@@ -1047,20 +1210,20 @@ provide module Parser {
             let elseSection = parseExpr(parserState, ParentBlock)
             match (elseSection) {
               Ok(elseSection) =>
-                Ok(WasmInstrIfElse(blockType, ifSection, elseSection)),
+                Ok(WasmInstr_If_Else(blockType, ifSection, elseSection)),
               Err(err) => return Err(err),
             }
           },
-          false => Ok(WasmInstrIf(blockType, ifSection)),
+          false => Ok(WasmInstr_If(blockType, ifSection)),
         }
       },
       0x0CS => {
         let labelIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrBr(labelIdx))
+        Ok(WasmInstr_Br(labelIdx))
       },
       0x0DS => {
         let labelIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrBrIf(labelIdx))
+        Ok(WasmInstr_Br_If(labelIdx))
       },
       0x0ES => {
         let labelCount = getUleb128AndAdvance(parserState, 32)
@@ -1070,26 +1233,26 @@ provide module Parser {
           labelIdxs = [labelIdx, ...labelIdxs]
         }
         let defaultLabel = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrBrTable(List.reverse(labelIdxs), defaultLabel))
+        Ok(WasmInstr_Br_Table(List.reverse(labelIdxs), defaultLabel))
       },
-      0x0FS => Ok(WasmInstrReturn),
+      0x0FS => Ok(WasmInstr_Return),
       0x10S => {
         let funcIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrCall(funcIdx))
+        Ok(WasmInstr_Call(funcIdx))
       },
       0x11S => {
         let typeIdx = getUleb128AndAdvance(parserState, 32)
         let tableIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrCallIndirect(typeIdx, tableIdx))
+        Ok(WasmInstr_Call_Indirect(typeIdx, tableIdx))
       },
       0x12S => {
         let funcIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrReturnCall(funcIdx))
+        Ok(WasmInstr_Return_Call(funcIdx))
       },
       0x13S => {
         let typeIdx = getUleb128AndAdvance(parserState, 32)
         let tableIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrReturnCallIndirect(typeIdx, tableIdx))
+        Ok(WasmInstr_Return_Call_Indirect(typeIdx, tableIdx))
       },
       // Reference Instructions
       0xD0S => {
@@ -1097,16 +1260,16 @@ provide module Parser {
           Ok(t) => t,
           Err(e) => return Err(e),
         }
-        Ok(WasmInstrRefNull(refType))
+        Ok(WasmInstr_Ref_Null(refType))
       },
-      0xD1S => Ok(WasmInstrRefIsNUll),
+      0xD1S => Ok(WasmInstr_Ref_Is_Null),
       0xD2S => {
         let funcIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrRefFunc(funcIdx))
+        Ok(WasmInstr_Ref_Func(funcIdx))
       },
       // Parametric Instructions
-      0x1AS => Ok(WasmInstrDrop),
-      0x1BS => Ok(WasmInstrSelect(None)),
+      0x1AS => Ok(WasmInstr_Drop),
+      0x1BS => Ok(WasmInstr_Select(None)),
       0x1CS => {
         let typeCount = getUleb128AndAdvance(parserState, 32)
         let mut types = []
@@ -1120,344 +1283,685 @@ provide module Parser {
           }
           types = [wasmType, ...types]
         }
-        Ok(WasmInstrSelect(Some(List.reverse(types))))
+        Ok(WasmInstr_Select(Some(List.reverse(types))))
       },
       // Variable Instructions
       0x20S => {
         let localIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrLocalGet(localIdx))
+        Ok(WasmInstr_Local_Get(localIdx))
       },
       0x21S => {
         let localIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrLocalSet(localIdx))
+        Ok(WasmInstr_Local_Set(localIdx))
       },
       0x22S => {
         let localIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrLocalTee(localIdx))
+        Ok(WasmInstr_Local_Tee(localIdx))
       },
       0x23S => {
         let globalIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrGlobalGet(globalIdx))
+        Ok(WasmInstr_Global_Get(globalIdx))
       },
       0x24S => {
         let globalIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrGlobalSet(globalIdx))
+        Ok(WasmInstr_Global_Set(globalIdx))
       },
       // Table Instructions
       0x25S => {
         let tableIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrTableGet(tableIdx))
+        Ok(WasmInstr_Table_Get(tableIdx))
       },
       0x26S => {
         let tableIdx = getUleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrTableSet(tableIdx))
+        Ok(WasmInstr_Table_Set(tableIdx))
       },
       // Memory Instructions
       0x28S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Load{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Load(memArg))
       },
       0x29S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load(memArg))
       },
       0x2AS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrF32Load{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_F32_Load(memArg))
       },
       0x2BS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrF64Load{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_F64_Load(memArg))
       },
       0x2CS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Load8S{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Load8_S(memArg))
       },
       0x2DS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Load8U{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Load8_U(memArg))
       },
       0x2ES => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Load16S{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Load16_S(memArg))
       },
       0x2FS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Load16U{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Load16_U(memArg))
       },
       0x30S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load8S{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load8_S(memArg))
       },
       0x31S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load8U{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load8_U(memArg))
       },
       0x32S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load16S{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load16_S(memArg))
       },
       0x33S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load16U{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load16_U(memArg))
       },
       0x34S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load32S{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load32_S(memArg))
       },
       0x35S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Load32U{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Load32_U(memArg))
       },
       0x36S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Store{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Store(memArg))
       },
       0x37S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Store{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Store(memArg))
       },
       0x38S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrF32Store{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_F32_Store(memArg))
       },
       0x39S => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrF64Store{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_F64_Store(memArg))
       },
       0x3AS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Store8{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Store8(memArg))
       },
       0x3BS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI32Store16{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I32_Store16(memArg))
       },
       0x3CS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Store8{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Store8(memArg))
       },
       0x3DS => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Store16{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Store16(memArg))
       },
       0x3ES => {
-        let (align, offset) = parseMemArg(parserState)
-        Ok(WasmInstrI64Store32{ align, offset })
+        let memArg = parseMemArg(parserState)
+        Ok(WasmInstr_I64_Store32(memArg))
       },
       0x3FS => {
         match (parserState.currentByte) {
           0x00S => nextByteU(parserState),
           c => return buildUnexpectedWasmToken(parserState, 0x00S, c),
         }
-        Ok(WasmInstrMemorySize)
+        Ok(WasmInstr_Memory_Size)
       },
       0x40S => {
         match (parserState.currentByte) {
           0x00S => nextByteU(parserState),
           c => return buildUnexpectedWasmToken(parserState, 0x00S, c),
         }
-        Ok(WasmInstrMemoryGrow)
+        Ok(WasmInstr_Memory_Grow)
       },
       // Numeric Instructions
       0x41S => {
         let value = getleb128AndAdvance(parserState, 32)
-        Ok(WasmInstrI32Const(value))
+        Ok(WasmInstr_I32_Const(value))
       },
       0x42S => {
         let value = getleb128AndAdvance(parserState, 64)
-        Ok(WasmInstrI64Const(value))
+        Ok(WasmInstr_I64_Const(value))
       },
       0x43S => {
         let value = match (nextF32(parserState)) {
           Ok(v) => v,
           Err(e) => return Err(e),
         }
-        Ok(WasmInstrF32Const(value))
+        Ok(WasmInstr_F32_Const(value))
       },
       0x44S => {
         let value = match (nextF64(parserState)) {
           Ok(v) => v,
           Err(e) => return Err(e),
         }
-        Ok(WasmInstrF64Const(value))
+        Ok(WasmInstr_F64_Const(value))
       },
-      0x45S => Ok(WasmInstrI32Eqz),
-      0x46S => Ok(WasmInstrI32Eq),
-      0x47S => Ok(WasmInstrI32Ne),
-      0x48S => Ok(WasmInstrI32LtS),
-      0x49S => Ok(WasmInstrI32LtU),
-      0x4AS => Ok(WasmInstrI32GtS),
-      0x4BS => Ok(WasmInstrI32GtU),
-      0x4CS => Ok(WasmInstrI32LeS),
-      0x4DS => Ok(WasmInstrI32LeU),
-      0x4ES => Ok(WasmInstrI32GeS),
-      0x4FS => Ok(WasmInstrI32GeU),
-      0x50S => Ok(WasmInstrI64Eqz),
-      0x51S => Ok(WasmInstrI64Eq),
-      0x52S => Ok(WasmInstrI64Ne),
-      0x53S => Ok(WasmInstrI64LtS),
-      0x54S => Ok(WasmInstrI64LtU),
-      0x55S => Ok(WasmInstrI64GtS),
-      0x56S => Ok(WasmInstrI64GtU),
-      0x57S => Ok(WasmInstrI64LeS),
-      0x58S => Ok(WasmInstrI64LeU),
-      0x59S => Ok(WasmInstrI64GeS),
-      0x5AS => Ok(WasmInstrI64GeU),
-      0x5BS => Ok(WasmInstrF32Eq),
-      0x5CS => Ok(WasmInstrF32Ne),
-      0x5DS => Ok(WasmInstrF32Lt),
-      0x5ES => Ok(WasmInstrF32Gt),
-      0x5FS => Ok(WasmInstrF32Le),
-      0x60S => Ok(WasmInstrF32Ge),
-      0x61S => Ok(WasmInstrF64Eq),
-      0x62S => Ok(WasmInstrF64Ne),
-      0x63S => Ok(WasmInstrF64Lt),
-      0x64S => Ok(WasmInstrF64Gt),
-      0x65S => Ok(WasmInstrF64Le),
-      0x66S => Ok(WasmInstrF64Ge),
-      0x67S => Ok(WasmInstrI32Clz),
-      0x68S => Ok(WasmInstrI32Ctz),
-      0x69S => Ok(WasmInstrI32Popcnt),
-      0x6AS => Ok(WasmInstrI32Add),
-      0x6BS => Ok(WasmInstrI32Sub),
-      0x6CS => Ok(WasmInstrI32Mul),
-      0x6DS => Ok(WasmInstrI32DivS),
-      0x6ES => Ok(WasmInstrI32DivU),
-      0x6FS => Ok(WasmInstrI32RemS),
-      0x70S => Ok(WasmInstrI32RemU),
-      0x71S => Ok(WasmInstrI32And),
-      0x72S => Ok(WasmInstrI32Or),
-      0x73S => Ok(WasmInstrI32Xor),
-      0x74S => Ok(WasmInstrI32Shl),
-      0x75S => Ok(WasmInstrI32ShrS),
-      0x76S => Ok(WasmInstrI32ShrU),
-      0x77S => Ok(WasmInstrI32Rotl),
-      0x78S => Ok(WasmInstrI32Rotr),
-      0x79S => Ok(WasmInstrI64Clz),
-      0x7AS => Ok(WasmInstrI64Ctz),
-      0x7BS => Ok(WasmInstrI64Popcnt),
-      0x7CS => Ok(WasmInstrI64Add),
-      0x7DS => Ok(WasmInstrI64Sub),
-      0x7ES => Ok(WasmInstrI64Mul),
-      0x7FS => Ok(WasmInstrI64DivS),
-      0x80S => Ok(WasmInstrI64DivU),
-      0x81S => Ok(WasmInstrI64RemS),
-      0x82S => Ok(WasmInstrI64RemU),
-      0x83S => Ok(WasmInstrI64And),
-      0x84S => Ok(WasmInstrI64Or),
-      0x85S => Ok(WasmInstrI64Xor),
-      0x86S => Ok(WasmInstrI64Shl),
-      0x87S => Ok(WasmInstrI64ShrS),
-      0x88S => Ok(WasmInstrI64ShrU),
-      0x89S => Ok(WasmInstrI64Rotl),
-      0x8AS => Ok(WasmInstrI64Rotr),
-      0x8BS => Ok(WasmInstrF32Abs),
-      0x8CS => Ok(WasmInstrF32Neg),
-      0x8DS => Ok(WasmInstrF32Ceil),
-      0x8ES => Ok(WasmInstrF32Floor),
-      0x8FS => Ok(WasmInstrF32Trunc),
-      0x90S => Ok(WasmInstrF32Nearest),
-      0x91S => Ok(WasmInstrF32Sqrt),
-      0x92S => Ok(WasmInstrF32Add),
-      0x93S => Ok(WasmInstrF32Sub),
-      0x94S => Ok(WasmInstrF32Mul),
-      0x95S => Ok(WasmInstrF32Div),
-      0x96S => Ok(WasmInstrF32Min),
-      0x97S => Ok(WasmInstrF32Max),
-      0x98S => Ok(WasmInstrF32CopySign),
-      0x99S => Ok(WasmInstrF64Abs),
-      0x9AS => Ok(WasmInstrF64Neg),
-      0x9BS => Ok(WasmInstrF64Ceil),
-      0x9CS => Ok(WasmInstrF64Floor),
-      0x9DS => Ok(WasmInstrF64Trunc),
-      0x9ES => Ok(WasmInstrF64Nearest),
-      0x9FS => Ok(WasmInstrF64Sqrt),
-      0xA0S => Ok(WasmInstrF64Add),
-      0xA1S => Ok(WasmInstrF64Sub),
-      0xA2S => Ok(WasmInstrF64Mul),
-      0xA3S => Ok(WasmInstrF64Div),
-      0xA4S => Ok(WasmInstrF64Min),
-      0xA5S => Ok(WasmInstrF64Max),
-      0xA6S => Ok(WasmInstrF64CopySign),
-      0xA7S => Ok(WasmInstrI32WrapI64),
-      0xA8S => Ok(WasmInstrI32TruncF32S),
-      0xA9S => Ok(WasmInstrI32TruncF32U),
-      0xAAS => Ok(WasmInstrI32TruncF64S),
-      0xABS => Ok(WasmInstrI32TruncF64U),
-      0xACS => Ok(WasmInstrI64ExtendI32S),
-      0xADS => Ok(WasmInstrI64ExtendI32U),
-      0xAES => Ok(WasmInstrI64TruncF32S),
-      0xAFS => Ok(WasmInstrI64TruncF32U),
-      0xB0S => Ok(WasmInstrI64TruncF64S),
-      0xB1S => Ok(WasmInstrI64TruncF64U),
-      0xB2S => Ok(WasmInstrF32ConvertI32S),
-      0xB3S => Ok(WasmInstrF32ConvertI32U),
-      0xB4S => Ok(WasmInstrF32ConvertI64S),
-      0xB5S => Ok(WasmInstrF32ConvertI64U),
-      0xB6S => Ok(WasmInstrF32DemoteF64),
-      0xB7S => Ok(WasmInstrF64ConvertI32S),
-      0xB8S => Ok(WasmInstrF64ConvertI32U),
-      0xB9S => Ok(WasmInstrF64ConvertI64S),
-      0xBAS => Ok(WasmInstrF64ConvertI64U),
-      0xBBS => Ok(WasmInstrF64PromoteF32),
-      0xBCS => Ok(WasmInstrI32ReinterpretF32),
-      0xBDS => Ok(WasmInstrI64ReinterpretF64),
-      0xBES => Ok(WasmInstrF32ReinterpretI32),
-      0xBFS => Ok(WasmInstrF64ReinterpretI64),
-      0xC0S => Ok(WasmInstrI32Extend8S),
-      0xC1S => Ok(WasmInstrI32Extend16S),
-      0xC2S => Ok(WasmInstrI64Extend8S),
-      0xC3S => Ok(WasmInstrI64Extend16S),
-      0xC4S => Ok(WasmInstrI64Extend32S),
+      0x45S => Ok(WasmInstr_I32_Eqz),
+      0x46S => Ok(WasmInstr_I32_Eq),
+      0x47S => Ok(WasmInstr_I32_Ne),
+      0x48S => Ok(WasmInstr_I32_Lt_S),
+      0x49S => Ok(WasmInstr_I32_Lt_U),
+      0x4AS => Ok(WasmInstr_I32_Gt_S),
+      0x4BS => Ok(WasmInstr_I32_Gt_U),
+      0x4CS => Ok(WasmInstr_I32_Le_S),
+      0x4DS => Ok(WasmInstr_I32_Le_U),
+      0x4ES => Ok(WasmInstr_I32_Ge_S),
+      0x4FS => Ok(WasmInstr_I32_Ge_U),
+      0x50S => Ok(WasmInstr_I64_Eqz),
+      0x51S => Ok(WasmInstr_I64_Eq),
+      0x52S => Ok(WasmInstr_I64_Ne),
+      0x53S => Ok(WasmInstr_I64_Lt_S),
+      0x54S => Ok(WasmInstr_I64_Lt_U),
+      0x55S => Ok(WasmInstr_I64_Gt_S),
+      0x56S => Ok(WasmInstr_I64_Gt_U),
+      0x57S => Ok(WasmInstr_I64_Le_S),
+      0x58S => Ok(WasmInstr_I64_Le_U),
+      0x59S => Ok(WasmInstr_I64_Ge_S),
+      0x5AS => Ok(WasmInstr_I64_Ge_U),
+      0x5BS => Ok(WasmInstr_F32_Eq),
+      0x5CS => Ok(WasmInstr_F32_Ne),
+      0x5DS => Ok(WasmInstr_F32_Lt),
+      0x5ES => Ok(WasmInstr_F32_Gt),
+      0x5FS => Ok(WasmInstr_F32_Le),
+      0x60S => Ok(WasmInstr_F32_Ge),
+      0x61S => Ok(WasmInstr_F64_Eq),
+      0x62S => Ok(WasmInstr_F64_Ne),
+      0x63S => Ok(WasmInstr_F64_Lt),
+      0x64S => Ok(WasmInstr_F64_Gt),
+      0x65S => Ok(WasmInstr_F64_Le),
+      0x66S => Ok(WasmInstr_F64_Ge),
+      0x67S => Ok(WasmInstr_I32_Clz),
+      0x68S => Ok(WasmInstr_I32_Ctz),
+      0x69S => Ok(WasmInstr_I32_Popcnt),
+      0x6AS => Ok(WasmInstr_I32_Add),
+      0x6BS => Ok(WasmInstr_I32_Sub),
+      0x6CS => Ok(WasmInstr_I32_Mul),
+      0x6DS => Ok(WasmInstr_I32_Div_S),
+      0x6ES => Ok(WasmInstr_I32_Div_U),
+      0x6FS => Ok(WasmInstr_I32_Rem_S),
+      0x70S => Ok(WasmInstr_I32_Rem_U),
+      0x71S => Ok(WasmInstr_I32_And),
+      0x72S => Ok(WasmInstr_I32_Or),
+      0x73S => Ok(WasmInstr_I32_Xor),
+      0x74S => Ok(WasmInstr_I32_Shl),
+      0x75S => Ok(WasmInstr_I32_Shr_S),
+      0x76S => Ok(WasmInstr_I32_Shr_U),
+      0x77S => Ok(WasmInstr_I32_Rotl),
+      0x78S => Ok(WasmInstr_I32_Rotr),
+      0x79S => Ok(WasmInstr_I64_Clz),
+      0x7AS => Ok(WasmInstr_I64_Ctz),
+      0x7BS => Ok(WasmInstr_I64_Popcnt),
+      0x7CS => Ok(WasmInstr_I64_Add),
+      0x7DS => Ok(WasmInstr_I64_Sub),
+      0x7ES => Ok(WasmInstr_I64_Mul),
+      0x7FS => Ok(WasmInstr_I64_Div_S),
+      0x80S => Ok(WasmInstr_I64_Div_U),
+      0x81S => Ok(WasmInstr_I64_Rem_S),
+      0x82S => Ok(WasmInstr_I64_Rem_U),
+      0x83S => Ok(WasmInstr_I64_And),
+      0x84S => Ok(WasmInstr_I64_Or),
+      0x85S => Ok(WasmInstr_I64_Xor),
+      0x86S => Ok(WasmInstr_I64_Shl),
+      0x87S => Ok(WasmInstr_I64_Shr_S),
+      0x88S => Ok(WasmInstr_I64_Shr_U),
+      0x89S => Ok(WasmInstr_I64_Rotl),
+      0x8AS => Ok(WasmInstr_I64_Rotr),
+      0x8BS => Ok(WasmInstr_F32_Abs),
+      0x8CS => Ok(WasmInstr_F32_Neg),
+      0x8DS => Ok(WasmInstr_F32_Ceil),
+      0x8ES => Ok(WasmInstr_F32_Floor),
+      0x8FS => Ok(WasmInstr_F32_Trunc),
+      0x90S => Ok(WasmInstr_F32_Nearest),
+      0x91S => Ok(WasmInstr_F32_Sqrt),
+      0x92S => Ok(WasmInstr_F32_Add),
+      0x93S => Ok(WasmInstr_F32_Sub),
+      0x94S => Ok(WasmInstr_F32_Mul),
+      0x95S => Ok(WasmInstr_F32_Div),
+      0x96S => Ok(WasmInstr_F32_Min),
+      0x97S => Ok(WasmInstr_F32_Max),
+      0x98S => Ok(WasmInstr_F32_CopySign),
+      0x99S => Ok(WasmInstr_F64_Abs),
+      0x9AS => Ok(WasmInstr_F64_Neg),
+      0x9BS => Ok(WasmInstr_F64_Ceil),
+      0x9CS => Ok(WasmInstr_F64_Floor),
+      0x9DS => Ok(WasmInstr_F64_Trunc),
+      0x9ES => Ok(WasmInstr_F64_Nearest),
+      0x9FS => Ok(WasmInstr_F64_Sqrt),
+      0xA0S => Ok(WasmInstr_F64_Add),
+      0xA1S => Ok(WasmInstr_F64_Sub),
+      0xA2S => Ok(WasmInstr_F64_Mul),
+      0xA3S => Ok(WasmInstr_F64_Div),
+      0xA4S => Ok(WasmInstr_F64_Min),
+      0xA5S => Ok(WasmInstr_F64_Max),
+      0xA6S => Ok(WasmInstr_F64_CopySign),
+      0xA7S => Ok(WasmInstr_I32_Wrap_I64),
+      0xA8S => Ok(WasmInstr_I32_Trunc_F32_S),
+      0xA9S => Ok(WasmInstr_I32_Trunc_F32_U),
+      0xAAS => Ok(WasmInstr_I32_Trunc_F64_S),
+      0xABS => Ok(WasmInstr_I32_Trunc_F64_U),
+      0xACS => Ok(WasmInstr_I64_Extend_I32_S),
+      0xADS => Ok(WasmInstr_I64_Extend_I32_U),
+      0xAES => Ok(WasmInstr_I64_Trunc_F32_S),
+      0xAFS => Ok(WasmInstr_I64_Trunc_F32_U),
+      0xB0S => Ok(WasmInstr_I64_Trunc_F64_S),
+      0xB1S => Ok(WasmInstr_I64_Trunc_F64_U),
+      0xB2S => Ok(WasmInstr_F32_Convert_I32_S),
+      0xB3S => Ok(WasmInstr_F32_Convert_I32_U),
+      0xB4S => Ok(WasmInstr_F32_Convert_I64_S),
+      0xB5S => Ok(WasmInstr_F32_Convert_I64_U),
+      0xB6S => Ok(WasmInstr_F32_Demote_F64),
+      0xB7S => Ok(WasmInstr_F64_Convert_I32_S),
+      0xB8S => Ok(WasmInstr_F64_Convert_I32_U),
+      0xB9S => Ok(WasmInstr_F64_Convert_I64_S),
+      0xBAS => Ok(WasmInstr_F64_Convert_I64_U),
+      0xBBS => Ok(WasmInstr_F64_Promote_F32),
+      0xBCS => Ok(WasmInstr_I32_Reinterpret_F32),
+      0xBDS => Ok(WasmInstr_I64_Reinterpret_F64),
+      0xBES => Ok(WasmInstr_F32_Reinterpret_I32),
+      0xBFS => Ok(WasmInstr_F64_Reinterpret_I64),
+      0xC0S => Ok(WasmInstr_I32_Extend8_S),
+      0xC1S => Ok(WasmInstr_I32_Extend16_S),
+      0xC2S => Ok(WasmInstr_I64_Extend8_S),
+      0xC3S => Ok(WasmInstr_I64_Extend16_S),
+      0xC4S => Ok(WasmInstr_I64_Extend32_S),
       // TODO: Vector Instructions
       0xFDS => {
         let instrIndex = getUleb128AndAdvance(parserState, 32)
         match (instrIndex) {
+          // Vector Load Store
           0 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_Load{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Load(memArg))
           },
           1 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_8x8SLoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_8x8_Load_S(memArg))
           },
           2 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_8x8ULoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_8x8_Load_U(memArg))
           },
           3 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_16x4SLoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_16x4_Load_S(memArg))
           },
           4 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_16x4ULoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_16x4_Load_U(memArg))
           },
           5 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_32x2SLoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_32x2_Load_S(memArg))
           },
           6 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_32x2ULoad{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_32x2_Load_S(memArg))
           },
           7 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_Load_8_Splat{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Load_8_Splat(memArg))
           },
           8 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_Load_16_Splat{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Load_16_Splat(memArg))
           },
           9 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_Load_32_Splat{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Load_32_Splat(memArg))
           },
           10 => {
-            let (align, offset) = parseMemArg(parserState)
-            Ok(WasmInstrV128_Load_64_Splat{ align, offset })
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Load_64_Splat(memArg))
           },
+          92 => {
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_Load_32_Zero(memArg))
+          },
+          93 => {
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_Load_64_Zero(memArg))
+          },
+          11 => {
+            let memArg = parseMemArg(parserState)
+            Ok(WasmInstr_V128_Store(memArg))
+          },
+          84 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Load8_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          85 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Load16_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          86 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Load32_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          87 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Load64_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          88 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Store8_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          89 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Store16_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          90 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Store32_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          91 => {
+            let memArg = parseMemArg(parserState)
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_V128_Store64_Lane(memArg, Int16.toNumber(laneIdx)))
+          },
+          12 => {
+            let n = match (nextI128(parserState)) {
+              Ok(n) => n,
+              Err(e) => return Err(e),
+            }
+            Ok(WasmInstr_V128_Const(n))
+          },
+          13 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I8x16_Shuffle(Int16.toNumber(laneIdx)))
+          },
+          21 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I8x16_Extract_Lane_S(Int16.toNumber(laneIdx)))
+          },
+          22 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I8x16_Extract_Lane_U(Int16.toNumber(laneIdx)))
+          },
+          23 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I8x16_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          24 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I16x8_Extract_Lane_S(Int16.toNumber(laneIdx)))
+          },
+          25 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I16x8_Extract_Lane_U(Int16.toNumber(laneIdx)))
+          },
+          26 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I16x8_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          27 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I32x4_Extract_Lane(Int16.toNumber(laneIdx)))
+          },
+          28 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I32x4_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          29 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I64x2_Extract_Lane(Int16.toNumber(laneIdx)))
+          },
+          30 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_I64x2_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          31 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_F32x4_Extract_Lane(Int16.toNumber(laneIdx)))
+          },
+          32 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_F32x4_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          33 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_F64x2_Extract_Lane(Int16.toNumber(laneIdx)))
+          },
+          34 => {
+            let laneIdx = parserState.currentByte
+            nextByteU(parserState)
+            Ok(WasmInstr_F64x2_Replace_Lane(Int16.toNumber(laneIdx)))
+          },
+          14 => Ok(WasmInstr_I8x16_Swizzle),
+          15 => Ok(WasmInstr_I8x16_Splat),
+          16 => Ok(WasmInstr_I16x8_Splat),
+          17 => Ok(WasmInstr_I32x4_Splat),
+          18 => Ok(WasmInstr_I64x2_Splat),
+          19 => Ok(WasmInstr_F32x4_Splat),
+          20 => Ok(WasmInstr_F64x2_Splat),
+          35 => Ok(WasmInstr_I8x16_Eq),
+          36 => Ok(WasmInstr_I8x16_Ne),
+          37 => Ok(WasmInstr_I8x16_Lt_S),
+          38 => Ok(WasmInstr_I8x16_Lt_U),
+          39 => Ok(WasmInstr_I8x16_Gt_S),
+          40 => Ok(WasmInstr_I8x16_Gt_U),
+          41 => Ok(WasmInstr_I8x16_Le_S),
+          42 => Ok(WasmInstr_I8x16_Le_U),
+          43 => Ok(WasmInstr_I8x16_Ge_S),
+          44 => Ok(WasmInstr_I8x16_Ge_U),
+          45 => Ok(WasmInstr_I16x8_Eq),
+          46 => Ok(WasmInstr_I16x8_Ne),
+          47 => Ok(WasmInstr_I16x8_Lt_S),
+          48 => Ok(WasmInstr_I16x8_Lt_U),
+          49 => Ok(WasmInstr_I16x8_Gt_S),
+          50 => Ok(WasmInstr_I16x8_Gt_U),
+          51 => Ok(WasmInstr_I16x8_Le_S),
+          52 => Ok(WasmInstr_I16x8_Le_U),
+          53 => Ok(WasmInstr_I16x8_Ge_S),
+          54 => Ok(WasmInstr_I16x8_Ge_U),
+          55 => Ok(WasmInstr_I32x4_Eq),
+          56 => Ok(WasmInstr_I32x4_Ne),
+          57 => Ok(WasmInstr_I32x4_Lt_S),
+          58 => Ok(WasmInstr_I32x4_Lt_U),
+          59 => Ok(WasmInstr_I32x4_Gt_S),
+          60 => Ok(WasmInstr_I32x4_Gt_U),
+          61 => Ok(WasmInstr_I32x4_Le_S),
+          62 => Ok(WasmInstr_I32x4_Le_U),
+          63 => Ok(WasmInstr_I32x4_Ge_S),
+          64 => Ok(WasmInstr_I32x4_Ge_U),
+          214 => Ok(WasmInstr_I64x2_Eq),
+          215 => Ok(WasmInstr_I64x2_Ne),
+          216 => Ok(WasmInstr_I64x2_Lt_S),
+          217 => Ok(WasmInstr_I64x2_Gt_S),
+          218 => Ok(WasmInstr_I64x2_Le_S),
+          219 => Ok(WasmInstr_I64x2_Ge_S),
+          65 => Ok(WasmInstr_F32x4_Eq),
+          66 => Ok(WasmInstr_F32x4_Ne),
+          67 => Ok(WasmInstr_F32x4_Lt),
+          68 => Ok(WasmInstr_F32x4_Gt),
+          69 => Ok(WasmInstr_F32x4_Le),
+          70 => Ok(WasmInstr_F32x4_Ge),
+          71 => Ok(WasmInstr_F64x2_Eq),
+          72 => Ok(WasmInstr_F64x2_Ne),
+          73 => Ok(WasmInstr_F64x2_Lt),
+          74 => Ok(WasmInstr_F64x2_Gt),
+          75 => Ok(WasmInstr_F64x2_Le),
+          76 => Ok(WasmInstr_F64x2_Ge),
+          77 => Ok(WasmInstr_V128_Not),
+          78 => Ok(WasmInstr_V128_And),
+          79 => Ok(WasmInstr_V128_And_Not),
+          80 => Ok(WasmInstr_V128_Or),
+          81 => Ok(WasmInstr_V128_Xor),
+          82 => Ok(WasmInstr_V128_Bitselect),
+          83 => Ok(WasmInstr_V128_Any_True),
+          96 => Ok(WasmInstr_I8x16_Abs),
+          97 => Ok(WasmInstr_I8x16_Neg),
+          98 => Ok(WasmInstr_I8x16_Popcnt),
+          99 => Ok(WasmInstr_I8x16_All_True),
+          100 => Ok(WasmInstr_I8x16_Bitmask),
+          101 => Ok(WasmInstr_I8x16_Narrow_I16x8_S),
+          102 => Ok(WasmInstr_I8x16_Narrow_I16x8_U),
+          107 => Ok(WasmInstr_I8x16_Shl),
+          108 => Ok(WasmInstr_I8x16_Shr_S),
+          109 => Ok(WasmInstr_I8x16_Shr_U),
+          110 => Ok(WasmInstr_I8x16_Add),
+          111 => Ok(WasmInstr_I8x16_Add_Sat_S),
+          112 => Ok(WasmInstr_I8x16_Add_Sat_U),
+          113 => Ok(WasmInstr_I8x16_Sub),
+          114 => Ok(WasmInstr_I8x16_Sub_Sat_S),
+          115 => Ok(WasmInstr_I8x16_Sub_Sat_U),
+          118 => Ok(WasmInstr_I8x16_Min_S),
+          119 => Ok(WasmInstr_I8x16_Min_U),
+          120 => Ok(WasmInstr_I8x16_Max_S),
+          121 => Ok(WasmInstr_I8x16_Max_U),
+          123 => Ok(WasmInstr_I8x16_Avgr_U),
+          124 => Ok(WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_S),
+          125 => Ok(WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_U),
+          128 => Ok(WasmInstr_I16x8_Abs),
+          129 => Ok(WasmInstr_I16x8_Neg),
+          130 => Ok(WasmInstr_I16x8_q15mulr_sat_s),
+          131 => Ok(WasmInstr_I16x8_All_True),
+          132 => Ok(WasmInstr_I16x8_Bitmask),
+          133 => Ok(WasmInstr_I16x8_Narrow_I32x4_S),
+          134 => Ok(WasmInstr_I16x8_Narrow_I32x4_U),
+          135 => Ok(WasmInstr_I16x8_Extend_Low_I8x16_S),
+          136 => Ok(WasmInstr_I16x8_Extend_High_I8x16_S),
+          137 => Ok(WasmInstr_I16x8_Extend_Low_I8x16_U),
+          138 => Ok(WasmInstr_I16x8_Extend_High_I8x16_U),
+          139 => Ok(WasmInstr_I16x8_Shl),
+          140 => Ok(WasmInstr_I16x8_Shr_S),
+          141 => Ok(WasmInstr_I16x8_Shr_U),
+          142 => Ok(WasmInstr_I16x8_Add),
+          143 => Ok(WasmInstr_I16x8_Add_Sat_S),
+          144 => Ok(WasmInstr_I16x8_Add_Sat_U),
+          145 => Ok(WasmInstr_I16x8_Sub),
+          146 => Ok(WasmInstr_I16x8_Sub_Sat_S),
+          147 => Ok(WasmInstr_I16x8_Sub_Sat_U),
+          149 => Ok(WasmInstr_I16x8_Mul),
+          150 => Ok(WasmInstr_I16x8_Min_S),
+          151 => Ok(WasmInstr_I16x8_Min_U),
+          152 => Ok(WasmInstr_I16x8_Max_S),
+          153 => Ok(WasmInstr_I16x8_Max_U),
+          155 => Ok(WasmInstr_I16x8_Avgr_U),
+          156 => Ok(WasmInstr_I16x8_ExtMulLow_I8x16_S),
+          157 => Ok(WasmInstr_I16x8_ExtMulHigh_I8x16_S),
+          158 => Ok(WasmInstr_I16x8_ExtMulLow_I8x16_U),
+          159 => Ok(WasmInstr_I16x8_ExtMulHigh_I8x16_U),
+          126 => Ok(WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_S),
+          127 => Ok(WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_U),
+          160 => Ok(WasmInstr_I32x4_Abs),
+          161 => Ok(WasmInstr_I32x4_Neg),
+          163 => Ok(WasmInstr_I32x4_All_True),
+          164 => Ok(WasmInstr_I32x4_Bitmask),
+          167 => Ok(WasmInstr_I32x4_Extend_Low_I16x8_S),
+          168 => Ok(WasmInstr_I32x4_Extend_High_I16x8_S),
+          169 => Ok(WasmInstr_I32x4_Extend_Low_I16x8_U),
+          170 => Ok(WasmInstr_I32x4_Extend_High_I16x8_U),
+          171 => Ok(WasmInstr_I32x4_Shl),
+          172 => Ok(WasmInstr_I32x4_Shr_S),
+          173 => Ok(WasmInstr_I32x4_Shr_U),
+          174 => Ok(WasmInstr_I32x4_Add),
+          177 => Ok(WasmInstr_I32x4_Sub),
+          181 => Ok(WasmInstr_I32x4_Mul),
+          182 => Ok(WasmInstr_I32x4_Min_S),
+          183 => Ok(WasmInstr_I32x4_Min_U),
+          184 => Ok(WasmInstr_I32x4_Max_S),
+          185 => Ok(WasmInstr_I32x4_Max_U),
+          186 => Ok(WasmInstr_I32x4_Dot_I16x8_S),
+          188 => Ok(WasmInstr_I32x4_ExtMulLow_I16x8_S),
+          189 => Ok(WasmInstr_I32x4_ExtMulHigh_I16x8_S),
+          190 => Ok(WasmInstr_I32x4_ExtMulLow_I16x8_U),
+          191 => Ok(WasmInstr_I32x4_ExtMulHigh_I16x8_U),
+          192 => Ok(WasmInstr_I64x2_Abs),
+          193 => Ok(WasmInstr_I64x2_Neg),
+          195 => Ok(WasmInstr_I64x2_All_True),
+          196 => Ok(WasmInstr_I64x2_Bitmask),
+          199 => Ok(WasmInstr_I64x2_Extend_Low_I32x4_S),
+          200 => Ok(WasmInstr_I64x2_Extend_High_I32x4_S),
+          201 => Ok(WasmInstr_I64x2_Extend_Low_I32x4_U),
+          202 => Ok(WasmInstr_I64x2_Extend_High_I32x4_U),
+          203 => Ok(WasmInstr_I64x2_Shl),
+          204 => Ok(WasmInstr_I64x2_Shr_S),
+          205 => Ok(WasmInstr_I64x2_Shr_U),
+          206 => Ok(WasmInstr_I64x2_Add),
+          209 => Ok(WasmInstr_I64x2_Sub),
+          213 => Ok(WasmInstr_I64x2_Mul),
+          220 => Ok(WasmInstr_I64x2_ExtMulLow_I32x4_S),
+          221 => Ok(WasmInstr_I64x2_ExtMulHigh_I32x4_S),
+          222 => Ok(WasmInstr_I64x2_ExtMulLow_I32x4_U),
+          223 => Ok(WasmInstr_I64x2_ExtMulHigh_I32x4_U),
+          103 => Ok(WasmInstr_F32x4_Ceil),
+          104 => Ok(WasmInstr_F32x4_Floor),
+          105 => Ok(WasmInstr_F32x4_Trunc),
+          106 => Ok(WasmInstr_F32x4_Nearest),
+          224 => Ok(WasmInstr_F32x4_Abs),
+          225 => Ok(WasmInstr_F32x4_Neg),
+          227 => Ok(WasmInstr_F32x4_Sqrt),
+          228 => Ok(WasmInstr_F32x4_Add),
+          229 => Ok(WasmInstr_F32x4_Sub),
+          230 => Ok(WasmInstr_F32x4_Mul),
+          231 => Ok(WasmInstr_F32x4_Div),
+          232 => Ok(WasmInstr_F32x4_Min),
+          233 => Ok(WasmInstr_F32x4_Max),
+          234 => Ok(WasmInstr_F32x4_Pmin),
+          235 => Ok(WasmInstr_F32x4_Pmax),
+          116 => Ok(WasmInstr_F64x2_Ceil),
+          117 => Ok(WasmInstr_F64x2_Floor),
+          122 => Ok(WasmInstr_F64x2_Trunc),
+          148 => Ok(WasmInstr_F64x2_Nearest),
+          236 => Ok(WasmInstr_F64x2_Abs),
+          237 => Ok(WasmInstr_F64x2_Neg),
+          239 => Ok(WasmInstr_F64x2_Sqrt),
+          240 => Ok(WasmInstr_F64x2_Add),
+          241 => Ok(WasmInstr_F64x2_Sub),
+          242 => Ok(WasmInstr_F64x2_Mul),
+          243 => Ok(WasmInstr_F64x2_Div),
+          244 => Ok(WasmInstr_F64x2_Min),
+          245 => Ok(WasmInstr_F64x2_Max),
+          246 => Ok(WasmInstr_F64x2_Pmin),
+          247 => Ok(WasmInstr_F64x2_Pmax),
+          248 => Ok(WasmInstr_I32x4_Trunc_Sat_F32x4_S),
+          249 => Ok(WasmInstr_I32x4_Trunc_Sat_F32x4_U),
+          250 => Ok(WasmInstr_F32x4_Convert_I32x4_S),
+          251 => Ok(WasmInstr_F32x4_Convert_I32x4_U),
+          252 => Ok(WasmInstr_I32x4_Trunc_Sat_F64x2_S_Zero),
+          253 => Ok(WasmInstr_I32x4_Trunc_Sat_F64x2_U_Zero),
+          254 => Ok(WasmInstr_F64x2_ConvertLow_I32x4_S),
+          255 => Ok(WasmInstr_F64x2_ConvertLow_I32x4_U),
+          94 => Ok(WasmInstr_F32x4_Demote_F64x2_Zero),
+          095 => Ok(WasmInstr_F64x2_PromoteLow_F32x4),
           // Invalid
           _ =>
             buildUnexpectedWasmTokenCustom(
@@ -1475,28 +1979,28 @@ provide module Parser {
           12 => {
             let elemIndex = getUleb128AndAdvance(parserState, 32)
             let tableIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrTableInit(elemIndex, tableIndex))
+            Ok(WasmInstr_Table_Init(elemIndex, tableIndex))
           },
           13 => {
             let elemIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrElemDrop(elemIndex))
+            Ok(WasmInstr_Elem_Drop(elemIndex))
           },
           14 => {
             let tableIndex1 = getUleb128AndAdvance(parserState, 32)
             let tableIndex2 = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrTableCopy(tableIndex1, tableIndex2))
+            Ok(WasmInstr_Table_Copy(tableIndex1, tableIndex2))
           },
           15 => {
             let tableIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrTableGrow(tableIndex))
+            Ok(WasmInstr_Table_Grow(tableIndex))
           },
           16 => {
             let tableIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrTableSize(tableIndex))
+            Ok(WasmInstr_Table_Size(tableIndex))
           },
           17 => {
             let tableIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrTableFill(tableIndex))
+            Ok(WasmInstr_Table_Fill(tableIndex))
           },
           // Memory Instructions
           8 => {
@@ -1505,11 +2009,11 @@ provide module Parser {
               0x00S => nextByteU(parserState),
               c => return buildUnexpectedWasmToken(parserState, 0x00S, c),
             }
-            Ok(WasmInstrMemoryInit(dataIndex))
+            Ok(WasmInstr_Memory_Init(dataIndex))
           },
           9 => {
             let dataIndex = getUleb128AndAdvance(parserState, 32)
-            Ok(WasmInstrDataDrop(dataIndex))
+            Ok(WasmInstr_Data_Drop(dataIndex))
           },
           10 => {
             match (parserState.currentByte) {
@@ -1520,24 +2024,24 @@ provide module Parser {
               0x00S => nextByteU(parserState),
               c => return buildUnexpectedWasmToken(parserState, 0x00S, c),
             }
-            Ok(WasmInstrMemoryCopy)
+            Ok(WasmInstr_Memory_Copy)
           },
           11 => {
             match (parserState.currentByte) {
               0x00S => nextByteU(parserState),
               c => return buildUnexpectedWasmToken(parserState, 0x00S, c),
             }
-            Ok(WasmInstrMemoryFill)
+            Ok(WasmInstr_Memory_Fill)
           },
           // Numeric Instructions
-          0 => Ok(WasmInstrI32TruncSatF32S),
-          1 => Ok(WasmInstrI32TruncSatF32U),
-          2 => Ok(WasmInstrI32TruncSatF64S),
-          3 => Ok(WasmInstrI32TruncSatF64U),
-          4 => Ok(WasmInstrI64TruncSatF32S),
-          5 => Ok(WasmInstrI64TruncSatF32U),
-          6 => Ok(WasmInstrI64TruncSatF64S),
-          7 => Ok(WasmInstrI64TruncSatF64U),
+          0 => Ok(WasmInstr_I32_TruncSat_F32_S),
+          1 => Ok(WasmInstr_I32_TruncSat_F32_U),
+          2 => Ok(WasmInstr_I32_TruncSat_F64_S),
+          3 => Ok(WasmInstr_I32_TruncSat_F64_U),
+          4 => Ok(WasmInstr_I64_TruncSat_F32_S),
+          5 => Ok(WasmInstr_I64_TruncSat_F32_U),
+          6 => Ok(WasmInstr_I64_TruncSat_F64_S),
+          7 => Ok(WasmInstr_I64_TruncSat_F64_U),
           // Invalid
           _ =>
             buildUnexpectedWasmTokenCustom(
@@ -1548,8 +2052,8 @@ provide module Parser {
         }
       },
       // End Instruction
-      0x05S => Ok(WasmInstrElse),
-      0x0BS => Ok(WasmInstrEnd),
+      0x05S => Ok(Wasm_Instr_Else),
+      0x0BS => Ok(Wasm_Instr_End),
       // Invalid
       c => Err(InvalidWasmInstr(c)),
     }
@@ -1561,7 +2065,7 @@ provide module Parser {
       match (instr) {
         Ok(instr) => {
           exprs = [instr, ...exprs]
-          if (instr == WasmInstrEnd) break
+          if (instr == Wasm_Instr_End) break
         },
         Err(err) => return Err(err),
       }
@@ -1712,9 +2216,9 @@ provide module Parser {
               let mut funcIndices = []
               for (let mut i = 0; i < funcCount; i += 1) {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
-                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+                funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [WasmInstrEnd, ...funcIndices]
+              funcIndices = [Wasm_Instr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: WasmFuncRef,
@@ -1733,9 +2237,9 @@ provide module Parser {
               let mut funcIndices = []
               for (let mut i = 0; i < funcCount; i += 1) {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
-                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+                funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [WasmInstrEnd, ...funcIndices]
+              funcIndices = [Wasm_Instr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,
@@ -1759,9 +2263,9 @@ provide module Parser {
               let mut funcIndices = []
               for (let mut i = 0; i < funcCount; i += 1) {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
-                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+                funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [WasmInstrEnd, ...funcIndices]
+              funcIndices = [Wasm_Instr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,
@@ -1780,9 +2284,9 @@ provide module Parser {
               let mut funcIndices = []
               for (let mut i = 0; i < funcCount; i += 1) {
                 let funcIdx = getUleb128AndAdvance(parserState, 32)
-                funcIndices = [WasmInstrRefFunc(funcIdx), ...funcIndices]
+                funcIndices = [WasmInstr_Ref_Func(funcIdx), ...funcIndices]
               }
-              funcIndices = [WasmInstrEnd, ...funcIndices]
+              funcIndices = [Wasm_Instr_End, ...funcIndices]
               elements = [
                 {
                   wasmType: elemKind,
