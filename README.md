@@ -36,6 +36,7 @@ Building support is a work in progress but is a pretty large undertaking the bui
 
 ## Other TODO's
 
+* Look into breaking the instructions up into separate spaces 
 * Generate a parser from and builder from the spec
 * Add tests for all features.
 * Name Section Parsing
