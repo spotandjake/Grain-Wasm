@@ -542,7 +542,7 @@ Represents wasm instructions and corresponding data.
 type Expression = List<WasmInstr>
 ```
 
-Represents a wasm expression
+Represents a wasm Expression.
 
 ### Wasm.**WasmTableType**
 
@@ -738,4 +738,72 @@ Returns:
 |type|description|
 |----|-----------|
 |`Result<Sections, WasmParseError>`|The parsed section|
+
+## Wasm.Builder
+
+Wasm Building Utils.
+
+### Values
+
+Functions and constants included in the Wasm.Builder module.
+
+#### Wasm.Builder.**buildSection**
+
+```grain
+buildSection : (section: Sections) -> Void
+```
+
+Compiles a Wasm Section.
+
+Parameters:
+
+|param|type|description|
+|-----|----|-----------|
+|`section`|`Sections`|The sections to compile|
+
+Returns:
+
+|type|description|
+|----|-----------|
+|`Void`|The compiled section|
+
+#### Wasm.Builder.**buildSections**
+
+```grain
+buildSections : (sections: List<Sections>) -> List<Void>
+```
+
+Compiles Wasm Sections.
+
+Parameters:
+
+|param|type|description|
+|-----|----|-----------|
+|`sections`|`List<Sections>`|The sections to compile|
+
+Returns:
+
+|type|description|
+|----|-----------|
+|`List<Void>`|The compiled sections|
+
+#### Wasm.Builder.**buildModule**
+
+```grain
+buildModule : (sections: List<RawSections>) -> Buffer.Buffer
+```
+
+Bundles a wasm module.
+
+Parameters:
+
+|param|type|description|
+|-----|----|-----------|
+|`sections`|`List<RawSections>`|The compiled sections to bundle|
+
+Returns:
+
+|type|description|
+|----|-----------|
+|`Buffer.Buffer`|The bundled module|
 

@@ -1,7 +1,9 @@
 module Wasm
 
 include "Bytes"
+include "Buffer"
 include "Int16"
+include "Uint8"
 include "list"
 include "string"
 include "runtime/numberUtils"
@@ -548,11 +550,11 @@ provide enum WasmInstr {
   // End
   WasmInstr_Else,
   WasmInstr_End,
-},
+}
 /**
- * Represents a wasm expression
+ * Represents a wasm Expression.
  */
-provide type Expression = List<WasmInstr>
+and provide type Expression = List<WasmInstr>
 /**
  * Represents a wasm table.
  */
@@ -733,7 +735,7 @@ let isAtEndOfInput = parserState => {
 }
 @unsafe
 let readByte = (idx: Number, bytes: Bytes) => {
-  from WasmI32 use { add as (+), gtS as (>) }
+  from WasmI32 use { (+), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(idx)
@@ -764,7 +766,7 @@ let nextF32 = parserState => {
   parserState.pos += 4
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { add as (+), sub as (-), gtS as (>) }
+  from WasmI32 use { (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 4n
@@ -785,7 +787,7 @@ let nextF64 = parserState => {
   parserState.pos += 8
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { add as (+), sub as (-), gtS as (>) }
+  from WasmI32 use { (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 8n
@@ -806,7 +808,7 @@ let nextI128 = parserState => {
   parserState.pos += 16
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { add as (+), sub as (-), gtS as (>) }
+  from WasmI32 use { (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 16n
@@ -2055,8 +2057,8 @@ provide module Parser {
       // Invalid
       c => Err(InvalidWasmInstr(c)),
     }
-  },
-  parseExpr = (parserState, parent) => {
+  }
+  and parseExpr = (parserState, parent) => {
     let mut exprs = []
     while (!isAtEndOfInput(parserState)) {
       let instr = parseInstr(parserState)
@@ -2070,6 +2072,7 @@ provide module Parser {
     }
     return Ok(List.reverse(exprs))
   }
+
   /**
    * Parse a section into a parsed wasm section.
    *
@@ -2531,4 +2534,133 @@ provide module Parser {
     return Ok(section)
   }
 }
-// TODO: Builder
+// TODO: Validator
+// Builder
+/**
+ * Wasm Building Utils.
+ */
+provide module Builder {
+  // Helpers
+  let bufAddUleb128 = (value: Number, buf: Buffer.Buffer) => {
+    let mut value = value
+    while (true) {
+      let mut byte = value & 0x7f
+      value = value >>> 7
+      if (value != 0) {
+        byte = byte | 0x80
+      }
+      Buffer.addUint8(Uint8.fromNumber(byte), buf)
+      if (value == 0) break
+    }
+  }
+  // Bundle The Raw Sections
+  let buildRawSection =
+    (
+      sectionID: Uint8,
+      bytes: Bytes,
+      buffer: Buffer.Buffer,
+    ) => {
+    // Add the section ID
+    Buffer.addUint8(sectionID, buffer)
+    // Add The Section Size
+    bufAddUleb128(Bytes.length(bytes), buffer)
+    // Add The Buffer
+    Buffer.addBytes(bytes, buffer)
+  }
+
+  // Build Each Section
+  let buildCustomSection = (bytes: Bytes) => void
+  let buildTypeSection = (wasmTypes: List<WasmType>) => void
+  let buildImportSection = (wasmImports: List<WasmImport>) => void
+  let buildFunctionSection = (funcs: List<Number>) => void
+  let buildTableSection = (tables: List<WasmTableType>) => void
+  let buildMemorySection = (mems: List<(Number, Option<Number>)>) => void
+  let buildGlobalSection = (globals: List<(WasmGlobalType, Expression)>) => void
+  let buildExportSection = (exports: List<WasmExportType>) => void
+  let buildStartSection = (startFunc: Number) => void
+  let buildElementSection = (elements: List<WasmElementSegment>) => void
+  let buildDataCountSection = (dataCount: Number) => void
+  let buildCodeSection = (funcs: List<WasmFunctionType>) => void
+  let buildDataSection = (dataElems: List<WasmDataSegment>) => void
+
+  /**
+   * Compiles a Wasm Section.
+   *
+   * @param section: The sections to compile
+   *
+   * @returns The compiled section
+   */
+
+  provide let buildSection = (section: Sections) => {
+    match (section) {
+      CustomSection(b) => buildCustomSection(b),
+      TypeSection(types) => buildTypeSection(types),
+      ImportSection(imports) => buildImportSection(imports),
+      FunctionSection(funcs) => buildFunctionSection(funcs),
+      TableSection(tables) => buildTableSection(tables),
+      MemorySection(mems) => buildMemorySection(mems),
+      GlobalSection(globals) => buildGlobalSection(globals),
+      ExportSection(exports) => buildExportSection(exports),
+      StartSection(startFunc) => buildStartSection(startFunc),
+      ElementSection(elements) => buildElementSection(elements),
+      DataCountSection(count) => buildDataCountSection(count),
+      CodeSection(funcs) => buildCodeSection(funcs),
+      DataSection(dataElems) => buildDataSection(dataElems),
+    }
+  }
+
+  /**
+   * Compiles Wasm Sections.
+   *
+   * @param sections: The sections to compile
+   *
+   * @returns The compiled sections
+   */
+
+  provide let buildSections = (sections: List<Sections>) => {
+    List.map((section: Sections) => buildSection(section), sections)
+  }
+
+  /**
+   * Bundles a wasm module.
+   *
+   * @param sections: The compiled sections to bundle
+   *
+   * @returns The bundled module
+   */
+
+  provide let buildModule = (sections: List<RawSections>) => {
+    let wasmFile = Buffer.make(0)
+    // Append Wasm Magic Number
+    // TODO: Merge this into either an int32 or a string
+    Buffer.addUint8(0x00us, wasmFile)
+    Buffer.addUint8(0x61us, wasmFile)
+    Buffer.addUint8(0x73us, wasmFile)
+    Buffer.addUint8(0x6dus, wasmFile)
+    // Append Wasm Version Number
+    // TODO: Merge this into either an int32 or a string
+    Buffer.addUint8(0x01us, wasmFile)
+    Buffer.addUint8(0x00us, wasmFile)
+    Buffer.addUint8(0x00us, wasmFile)
+    Buffer.addUint8(0x00us, wasmFile)
+    // Build Sections
+    List.forEach(section => {
+      match (section) {
+        RawCustomSection(bytes) => buildRawSection(0x00us, bytes, wasmFile),
+        RawTypeSection(bytes) => buildRawSection(0x01us, bytes, wasmFile),
+        RawImportSection(bytes) => buildRawSection(0x02us, bytes, wasmFile),
+        RawFunctionSection(bytes) => buildRawSection(0x03us, bytes, wasmFile),
+        RawTableSection(bytes) => buildRawSection(0x04us, bytes, wasmFile),
+        RawMemorySection(bytes) => buildRawSection(0x05us, bytes, wasmFile),
+        RawGlobalSection(bytes) => buildRawSection(0x06us, bytes, wasmFile),
+        RawExportSection(bytes) => buildRawSection(0x07us, bytes, wasmFile),
+        RawStartSection(bytes) => buildRawSection(0x08us, bytes, wasmFile),
+        RawElementSection(bytes) => buildRawSection(0x09us, bytes, wasmFile),
+        RawDataCountSection(bytes) => buildRawSection(0x0cus, bytes, wasmFile),
+        RawCodeSection(bytes) => buildRawSection(0x0aus, bytes, wasmFile),
+        RawDataSection(bytes) => buildRawSection(0x0bus, bytes, wasmFile),
+      }
+    }, sections)
+    return wasmFile
+  }
+}
