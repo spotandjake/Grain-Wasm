@@ -743,6 +743,21 @@ Returns:
 
 Wasm Building Utils.
 
+### Types
+
+Type declarations included in the Wasm.Builder module.
+
+#### Wasm.Builder.**WasmBuildError**
+
+```grain
+enum WasmBuildError {
+  InvalidTypeInFunction,
+  InvalidTypeInTypeSection,
+}
+```
+
+Represents errors for Wasm bulding.
+
 ### Values
 
 Functions and constants included in the Wasm.Builder module.
@@ -750,7 +765,7 @@ Functions and constants included in the Wasm.Builder module.
 #### Wasm.Builder.**buildSection**
 
 ```grain
-buildSection : (section: Sections) -> Void
+buildSection : (section: Sections) -> Result<RawSections, WasmBuildError>
 ```
 
 Compiles a Wasm Section.
@@ -765,12 +780,13 @@ Returns:
 
 |type|description|
 |----|-----------|
-|`Void`|The compiled section|
+|`Result<RawSections, WasmBuildError>`|The compiled section|
 
 #### Wasm.Builder.**buildSections**
 
 ```grain
-buildSections : (sections: List<Sections>) -> List<Void>
+buildSections :
+  (sections: List<Sections>) -> Result<List<RawSections>, WasmBuildError>
 ```
 
 Compiles Wasm Sections.
@@ -785,7 +801,7 @@ Returns:
 
 |type|description|
 |----|-----------|
-|`List<Void>`|The compiled sections|
+|`Result<List<RawSections>, WasmBuildError>`|The compiled sections|
 
 #### Wasm.Builder.**buildModule**
 

@@ -44,3 +44,25 @@ Building support is a work in progress but is a pretty large undertaking the bui
 * Build Optimizer Module
 * Build A Searchable API, so we can support type mapping and provide a more workable interface rather than just a simple ir.
 
+## Optimizer Planning
+This section is for planning out a future optimizer module, none of this is implemented or fully researched and is just preliminary ideas.
+### Ideas
+#### Memory Optimizer
+Would allow you to state regions in memory that are not externally visible and possibly handle some sort of constant propagation thorough them.
+
+### Easier
+* Direct Call Non Table Function Culling
+* Unused Memory
+* Unused Data Section *Note*: Look into if this is actually easy
+* Side Effect Analysis
+* 100% Dead Code Analysis
+  * Stuff After Unreachable
+* Unused Import Removal
+* Unused Local Removal
+* Unused Global Removal
+
+### Harder
+* Data Section Merging
+* Unused Function With Tables
+* Constant Propagation
+

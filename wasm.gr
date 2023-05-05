@@ -3,9 +3,12 @@ module Wasm
 include "Bytes"
 include "Buffer"
 include "Int16"
+include "int64"
 include "Uint8"
 include "list"
 include "string"
+include "float32"
+include "float64"
 include "runtime/numberUtils"
 include "runtime/numbers"
 include "runtime/dataStructures"
@@ -17,6 +20,7 @@ include "runtime/unsafe/wasmf64"
 from Numbers use { coerceNumberToWasmI32 }
 from DataStructures use { tagInt16, newInt64, newFloat32, newFloat64 }
 // Types
+// TODO: Put The Types Directly Related To Parsing Under Parsing Module
 /**
  * Represents errors for Wasm parsing.
  */
@@ -334,7 +338,24 @@ provide enum WasmInstr {
   WasmInstr_V128_Store32_Lane(WasmMemoryArg, Number),
   WasmInstr_V128_Store64_Lane(WasmMemoryArg, Number),
   WasmInstr_V128_Const(Number),
-  WasmInstr_I8x16_Shuffle(Number),
+  WasmInstr_I8x16_Shuffle(
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8,
+    Uint8
+  ),
   WasmInstr_I8x16_Extract_Lane_S(Number),
   WasmInstr_I8x16_Extract_Lane_U(Number),
   WasmInstr_I8x16_Replace_Lane(Number),
@@ -1573,7 +1594,7 @@ provide module Parser {
       0xC2S => Ok(WasmInstr_I64_Extend8_S),
       0xC3S => Ok(WasmInstr_I64_Extend16_S),
       0xC4S => Ok(WasmInstr_I64_Extend32_S),
-      // TODO: Vector Instructions
+      // Vector Instructions
       0xFDS => {
         let instrIndex = getUleb128AndAdvance(parserState, 32)
         match (instrIndex) {
@@ -1690,9 +1711,90 @@ provide module Parser {
             Ok(WasmInstr_V128_Const(n))
           },
           13 => {
-            let laneIdx = parserState.currentByte
+            let laneIdx1 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
             nextByteU(parserState)
-            Ok(WasmInstr_I8x16_Shuffle(Int16.toNumber(laneIdx)))
+            let laneIdx2 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx3 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx4 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx5 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx6 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx7 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx8 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx9 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx10 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx11 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx12 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx13 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx14 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx15 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            let laneIdx16 = Uint8.fromNumber(
+              Int16.toNumber(parserState.currentByte)
+            )
+            nextByteU(parserState)
+            Ok(
+              WasmInstr_I8x16_Shuffle(
+                laneIdx1,
+                laneIdx2,
+                laneIdx3,
+                laneIdx4,
+                laneIdx5,
+                laneIdx6,
+                laneIdx7,
+                laneIdx8,
+                laneIdx9,
+                laneIdx10,
+                laneIdx11,
+                laneIdx12,
+                laneIdx13,
+                laneIdx14,
+                laneIdx15,
+                laneIdx16
+              )
+            )
           },
           21 => {
             let laneIdx = parserState.currentByte
@@ -2052,6 +2154,7 @@ provide module Parser {
         }
       },
       // End Instruction
+      // TODO: Realistically you should never be able to get an else instr we need to get rid of this instruction code
       0x05S => Ok(WasmInstr_Else),
       0x0BS => Ok(WasmInstr_End),
       // Invalid
@@ -2534,12 +2637,25 @@ provide module Parser {
     return Ok(section)
   }
 }
-// TODO: Validator
 // Builder
 /**
  * Wasm Building Utils.
  */
 provide module Builder {
+  // Types
+  /**
+   * Represents errors for Wasm building.
+   */
+
+  provide enum WasmBuildError {
+    InvalidTypeInFunction,
+    InvalidTypeInTypeSection,
+    InvalidTableTypeImport,
+    InvalidGlobalDescription,
+    InvalidWasmBlockType,
+    InvalidReferenceType,
+    InvalidValueType,
+  }
   // Helpers
   let bufAddUleb128 = (value: Number, buf: Buffer.Buffer) => {
     let mut value = value
@@ -2553,7 +2669,79 @@ provide module Builder {
       if (value == 0) break
     }
   }
+  let bufAddLeb128 = (value: Number, buf: Buffer.Buffer) => {
+    // TODO: Verify this is correct
+    let mut value = value
+    value = value | 0
+    while (true) {
+      let byte_ = value & 0x7f
+      value = value >> 7
+      if (
+        value == 0 && (byte_ & 0x40) == 0 || value == -1 && (byte_ & 0x40) != 0
+      ) {
+        Buffer.addUint8(Uint8.fromNumber(byte_), buf)
+        break
+      }
+      Buffer.addUint8(Uint8.fromNumber(byte_ | 0x80), buf)
+    }
+  }
+  let buffAddStr = (value: String, buf: Buffer.Buffer) => {
+    // Add String Length
+    bufAddUleb128(String.length(value), buf)
+    // Add String Contents
+    Buffer.addString(value, buf)
+  }
   // Bundle The Raw Sections
+  let buildMemArg = (value: WasmMemoryArg, buf: Buffer.Buffer) => {
+    bufAddUleb128(value.align, buf)
+    bufAddUleb128(value.offset, buf)
+  }
+  let buildBlockType = (blockType: WasmType, buf: Buffer.Buffer) => {
+    // TODO: Roll this into the compile type
+    match (blockType) {
+      EmptyType => {
+        Buffer.addUint8(0x40us, buf)
+        None
+      },
+      TypeIdx(typeIdx) => {
+        // TODO: We need to encode this specially
+        bufAddLeb128(typeIdx, buf)
+        None
+      },
+      _ => Some(InvalidWasmBlockType),
+    }
+  }
+  let buildLimit = (min: Number, max: Option<Number>, buf: Buffer.Buffer) => {
+    match (max) {
+      None => {
+        Buffer.addUint8(0x00us, buf)
+        bufAddUleb128(min, buf)
+      },
+      Some(max) => {
+        Buffer.addUint8(0x01us, buf)
+        bufAddUleb128(min, buf)
+        bufAddUleb128(max, buf)
+      },
+    }
+  }
+  let buildWasmGlobal = (wasmGlobal: WasmGlobalType, buf: Buffer.Buffer) => {
+    // Compile Type
+    match (wasmGlobal.wasmType) {
+      // TODO: Break this into a compile WasmType
+      WasmI32 => Buffer.addUint8(0x7Fus, buf),
+      WasmI64 => Buffer.addUint8(0x7Eus, buf),
+      WasmF32 => Buffer.addUint8(0x7Dus, buf),
+      WasmF64 => Buffer.addUint8(0x7Cus, buf),
+      // Invalid Types
+      _ => return Some(InvalidGlobalDescription),
+    }
+    // Compile Mut Flag
+    match (wasmGlobal.isMutable) {
+      true => Buffer.addUint8(0x01us, buf),
+      false => Buffer.addUint8(0x00us, buf),
+    }
+    return None
+  }
   let buildRawSection =
     (
       sectionID: Uint8,
@@ -2567,21 +2755,1768 @@ provide module Builder {
     // Add The Buffer
     Buffer.addBytes(bytes, buffer)
   }
+  // Build Expr
+  let rec buildInstr = (instr, buf) => {
+    match (instr) {
+      // Control Instructions
+      WasmInstr_Unreachable => Buffer.addUint8(0x00us, buf),
+      WasmInstr_Nop => Buffer.addUint8(0x01us, buf),
+      WasmInstr_Block(blockType, expr) => {
+        Buffer.addUint8(0x02us, buf)
+        // Compile Block Type
+        match (buildBlockType(blockType, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+        // Compile Block
+        match (buildExpr(expr, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+      },
+      WasmInstr_Loop(blockType, expr) => {
+        Buffer.addUint8(0x03us, buf)
+        // Compile Block Type
+        match (buildBlockType(blockType, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+        // Compile Block
+        match (buildExpr(expr, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+      },
+      WasmInstr_If(blockType, expr) => {
+        Buffer.addUint8(0x04us, buf)
+        // Compile Block Type
+        match (buildBlockType(blockType, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+        // Compile Block
+        match (buildExpr(expr, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+      },
+      WasmInstr_If_Else(blockType, exprTrue, exprFalse) => {
+        Buffer.addUint8(0x02us, buf)
+        // Compile Block Type
+        match (buildBlockType(blockType, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+        // Compile Block
+        match (buildExpr(exprTrue, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+        Buffer.addUint8(0x05us, buf)
+        match (buildExpr(exprFalse, buf)) {
+          Some(err) => return Some(err),
+          None => void,
+        }
+      },
+      WasmInstr_Br(labelIdx) => {
+        Buffer.addUint8(0x0Cus, buf)
+        bufAddUleb128(labelIdx, buf)
+      },
+      WasmInstr_Br_If(labelIdx) => {
+        Buffer.addUint8(0x0Dus, buf)
+        bufAddUleb128(labelIdx, buf)
+      },
+      WasmInstr_Br_Table(labels, labelIdx) => {
+        Buffer.addUint8(0x0Cus, buf)
+        bufAddUleb128(List.length(labels), buf)
+        List.forEach(label => {
+          bufAddUleb128(label, buf)
+        }, labels)
+        bufAddUleb128(labelIdx, buf)
+      },
+      WasmInstr_Return => Buffer.addUint8(0x0Fus, buf),
+      WasmInstr_Call(funcIdx) => {
+        Buffer.addUint8(0x10us, buf)
+        bufAddUleb128(funcIdx, buf)
+      },
+      WasmInstr_Call_Indirect(typeIdx, tableIdx) => {
+        Buffer.addUint8(0x11us, buf)
+        bufAddUleb128(typeIdx, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      WasmInstr_Return_Call(typeIdx) => {
+        Buffer.addUint8(0x12us, buf)
+        bufAddUleb128(typeIdx, buf)
+      },
+      WasmInstr_Return_Call_Indirect(typeIdx, tableIdx) => {
+        Buffer.addUint8(0x13us, buf)
+        bufAddUleb128(typeIdx, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      // Reference Instructions
+      WasmInstr_Ref_Null(wasmType) => {
+        Buffer.addUint8(0xD0us, buf)
+        // TODO: Move this to a compile type
+        match (wasmType) {
+          WasmFuncRef => Buffer.addUint8(0x00us, buf),
+          WasmExternRef => Buffer.addUint8(0x01us, buf),
+          _ => return Some(InvalidReferenceType),
+        }
+      },
+      WasmInstr_Ref_Is_Null => Buffer.addUint8(0xD1us, buf),
+      WasmInstr_Ref_Func(funcIdx) => {
+        Buffer.addUint8(0xD2us, buf)
+        bufAddUleb128(funcIdx, buf)
+      },
+      // Parametric Instructions
+      WasmInstr_Drop => Buffer.addUint8(0x1Aus, buf),
+      WasmInstr_Select(valTypes) => {
+        match (valTypes) {
+          None => Buffer.addUint8(0x1Bus, buf),
+          Some(valTypes) => {
+            Buffer.addUint8(0x1Cus, buf)
+            bufAddUleb128(List.length(valTypes), buf)
+            let mut err = None
+            List.forEach(valType => {
+              if (err == None) {
+                match (valType) {
+                  WasmI32 => Buffer.addUint8(0x7Fus, buf),
+                  WasmI64 => Buffer.addUint8(0x7Eus, buf),
+                  WasmF32 => Buffer.addUint8(0x7Dus, buf),
+                  WasmF64 => Buffer.addUint8(0x7Cus, buf),
+                  _ => err = Some(InvalidValueType),
+                }
+              }
+            }, valTypes)
+            if (err != None) return err
+          },
+        }
+      },
+      // Variable Instructions
+      WasmInstr_Local_Get(localIdx) => {
+        Buffer.addUint8(0x20us, buf)
+        bufAddUleb128(localIdx, buf)
+      },
+      WasmInstr_Local_Set(localIdx) => {
+        Buffer.addUint8(0x21us, buf)
+        bufAddUleb128(localIdx, buf)
+      },
+      WasmInstr_Local_Tee(localIdx) => {
+        Buffer.addUint8(0x22us, buf)
+        bufAddUleb128(localIdx, buf)
+      },
+      WasmInstr_Global_Get(globalIdx) => {
+        Buffer.addUint8(0x23us, buf)
+        bufAddUleb128(globalIdx, buf)
+      },
+      WasmInstr_Global_Set(globalIdx) => {
+        Buffer.addUint8(0x24us, buf)
+        bufAddUleb128(globalIdx, buf)
+      },
+      // Table Instructions
+      WasmInstr_Table_Get(tableIdx) => {
+        Buffer.addUint8(0x25us, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      WasmInstr_Table_Set(tableIdx) => {
+        Buffer.addUint8(0x26us, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      WasmInstr_Table_Init(elemIdx1, tableIdx2) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(12, buf)
+        bufAddUleb128(elemIdx1, buf)
+        bufAddUleb128(tableIdx2, buf)
+      },
+      WasmInstr_Elem_Drop(elemIdx) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(13, buf)
+        bufAddUleb128(elemIdx, buf)
+      },
+      WasmInstr_Table_Copy(tableIdx1, tableIdx2) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(14, buf)
+        bufAddUleb128(tableIdx1, buf)
+        bufAddUleb128(tableIdx2, buf)
+      },
+      WasmInstr_Table_Grow(tableIdx) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(15, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      WasmInstr_Table_Size(tableIdx) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(16, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      WasmInstr_Table_Fill(tableIdx) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(17, buf)
+        bufAddUleb128(tableIdx, buf)
+      },
+      // Memory Instructions
+      WasmInstr_I32_Load(memArg) => {
+        Buffer.addUint8(0x28us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load(memArg) => {
+        Buffer.addUint8(0x29us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_F32_Load(memArg) => {
+        Buffer.addUint8(0x2Aus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_F64_Load(memArg) => {
+        Buffer.addUint8(0x2Bus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Load8_S(memArg) => {
+        Buffer.addUint8(0x2Cus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Load8_U(memArg) => {
+        Buffer.addUint8(0x2Dus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Load16_S(memArg) => {
+        Buffer.addUint8(0x2Eus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Load16_U(memArg) => {
+        Buffer.addUint8(0x2Fus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load8_S(memArg) => {
+        Buffer.addUint8(0x30us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load8_U(memArg) => {
+        Buffer.addUint8(0x31us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load16_S(memArg) => {
+        Buffer.addUint8(0x32us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load16_U(memArg) => {
+        Buffer.addUint8(0x33us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load32_S(memArg) => {
+        Buffer.addUint8(0x34us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Load32_U(memArg) => {
+        Buffer.addUint8(0x35us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Store(memArg) => {
+        Buffer.addUint8(0x36us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Store(memArg) => {
+        Buffer.addUint8(0x37us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_F32_Store(memArg) => {
+        Buffer.addUint8(0x38us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_F64_Store(memArg) => {
+        Buffer.addUint8(0x39us, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Store8(memArg) => {
+        Buffer.addUint8(0x3Aus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I32_Store16(memArg) => {
+        Buffer.addUint8(0x3Bus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Store8(memArg) => {
+        Buffer.addUint8(0x3Cus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Store16(memArg) => {
+        Buffer.addUint8(0x3Dus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_I64_Store32(memArg) => {
+        Buffer.addUint8(0x3Eus, buf)
+        buildMemArg(memArg, buf)
+      },
+      WasmInstr_Memory_Size => {
+        Buffer.addUint8(0x3Fus, buf)
+        Buffer.addUint8(0x30us, buf)
+      },
+      WasmInstr_Memory_Grow => {
+        Buffer.addUint8(0x40us, buf)
+        Buffer.addUint8(0x30us, buf)
+      },
+      WasmInstr_Memory_Init(n) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(8, buf)
+        bufAddUleb128(n, buf)
+        Buffer.addUint8(0x00us, buf)
+      },
+      WasmInstr_Data_Drop(n) => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(9, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_Memory_Copy => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(10, buf)
+        Buffer.addUint8(0x00us, buf)
+        Buffer.addUint8(0x00us, buf)
+      },
+      WasmInstr_Memory_Fill => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(11, buf)
+        Buffer.addUint8(0x00us, buf)
+      },
+      // Numeric Instructions
+      WasmInstr_I32_Const(n) => {
+        Buffer.addUint8(0x41us, buf)
+        bufAddLeb128(n, buf)
+      },
+      WasmInstr_I64_Const(n) => {
+        Buffer.addUint8(0x42us, buf)
+        bufAddLeb128(n, buf)
+      },
+      WasmInstr_F32_Const(n) => {
+        Buffer.addUint8(0x43us, buf)
+        Buffer.addFloat32(Float32.fromNumber(n), buf)
+      },
+      WasmInstr_F64_Const(n) => {
+        Buffer.addUint8(0x44us, buf)
+        Buffer.addFloat64(Float64.fromNumber(n), buf)
+      },
+      WasmInstr_I32_Eqz => Buffer.addUint8(0x45us, buf),
+      WasmInstr_I32_Eq => Buffer.addUint8(0x45us, buf),
+      WasmInstr_I32_Ne => Buffer.addUint8(0x45us, buf),
+      WasmInstr_I32_Lt_S => Buffer.addUint8(0x48us, buf),
+      WasmInstr_I32_Lt_U => Buffer.addUint8(0x49us, buf),
+      WasmInstr_I32_Gt_S => Buffer.addUint8(0x4Aus, buf),
+      WasmInstr_I32_Gt_U => Buffer.addUint8(0x4Bus, buf),
+      WasmInstr_I32_Le_S => Buffer.addUint8(0x4Cus, buf),
+      WasmInstr_I32_Le_U => Buffer.addUint8(0x4Dus, buf),
+      WasmInstr_I32_Ge_S => Buffer.addUint8(0x4Eus, buf),
+      WasmInstr_I32_Ge_U => Buffer.addUint8(0x4Fus, buf),
+      WasmInstr_I64_Eqz => Buffer.addUint8(0x50us, buf),
+      WasmInstr_I64_Eq => Buffer.addUint8(0x51us, buf),
+      WasmInstr_I64_Ne => Buffer.addUint8(0x52us, buf),
+      WasmInstr_I64_Lt_S => Buffer.addUint8(0x53us, buf),
+      WasmInstr_I64_Lt_U => Buffer.addUint8(0x54us, buf),
+      WasmInstr_I64_Gt_S => Buffer.addUint8(0x55us, buf),
+      WasmInstr_I64_Gt_U => Buffer.addUint8(0x56us, buf),
+      WasmInstr_I64_Le_S => Buffer.addUint8(0x57us, buf),
+      WasmInstr_I64_Le_U => Buffer.addUint8(0x58us, buf),
+      WasmInstr_I64_Ge_S => Buffer.addUint8(0x59us, buf),
+      WasmInstr_I64_Ge_U => Buffer.addUint8(0x5Aus, buf),
+      WasmInstr_F32_Eq => Buffer.addUint8(0x5Bus, buf),
+      WasmInstr_F32_Ne => Buffer.addUint8(0x5Cus, buf),
+      WasmInstr_F32_Lt => Buffer.addUint8(0x5Dus, buf),
+      WasmInstr_F32_Gt => Buffer.addUint8(0x5Eus, buf),
+      WasmInstr_F32_Le => Buffer.addUint8(0x5Fus, buf),
+      WasmInstr_F32_Ge => Buffer.addUint8(0x60us, buf),
+      WasmInstr_F64_Eq => Buffer.addUint8(0x61us, buf),
+      WasmInstr_F64_Ne => Buffer.addUint8(0x62us, buf),
+      WasmInstr_F64_Lt => Buffer.addUint8(0x63us, buf),
+      WasmInstr_F64_Gt => Buffer.addUint8(0x64us, buf),
+      WasmInstr_F64_Le => Buffer.addUint8(0x65us, buf),
+      WasmInstr_F64_Ge => Buffer.addUint8(0x66us, buf),
+      WasmInstr_I32_Clz => Buffer.addUint8(0x67us, buf),
+      WasmInstr_I32_Ctz => Buffer.addUint8(0x68us, buf),
+      WasmInstr_I32_Popcnt => Buffer.addUint8(0x69us, buf),
+      WasmInstr_I32_Add => Buffer.addUint8(0x6Aus, buf),
+      WasmInstr_I32_Sub => Buffer.addUint8(0x6Bus, buf),
+      WasmInstr_I32_Mul => Buffer.addUint8(0x6Cus, buf),
+      WasmInstr_I32_Div_S => Buffer.addUint8(0x6Dus, buf),
+      WasmInstr_I32_Div_U => Buffer.addUint8(0x6Eus, buf),
+      WasmInstr_I32_Rem_S => Buffer.addUint8(0x6Fus, buf),
+      WasmInstr_I32_Rem_U => Buffer.addUint8(0x70us, buf),
+      WasmInstr_I32_And => Buffer.addUint8(0x71us, buf),
+      WasmInstr_I32_Or => Buffer.addUint8(0x72us, buf),
+      WasmInstr_I32_Xor => Buffer.addUint8(0x73us, buf),
+      WasmInstr_I32_Shl => Buffer.addUint8(0x74us, buf),
+      WasmInstr_I32_Shr_S => Buffer.addUint8(0x75us, buf),
+      WasmInstr_I32_Shr_U => Buffer.addUint8(0x76us, buf),
+      WasmInstr_I32_Rotl => Buffer.addUint8(0x77us, buf),
+      WasmInstr_I32_Rotr => Buffer.addUint8(0x78us, buf),
+      WasmInstr_I64_Clz => Buffer.addUint8(0x79us, buf),
+      WasmInstr_I64_Ctz => Buffer.addUint8(0x7Aus, buf),
+      WasmInstr_I64_Popcnt => Buffer.addUint8(0x7Bus, buf),
+      WasmInstr_I64_Add => Buffer.addUint8(0x7Cus, buf),
+      WasmInstr_I64_Sub => Buffer.addUint8(0x7Dus, buf),
+      WasmInstr_I64_Mul => Buffer.addUint8(0x7Eus, buf),
+      WasmInstr_I64_Div_S => Buffer.addUint8(0x7Fus, buf),
+      WasmInstr_I64_Div_U => Buffer.addUint8(0x80us, buf),
+      WasmInstr_I64_Rem_S => Buffer.addUint8(0x81us, buf),
+      WasmInstr_I64_Rem_U => Buffer.addUint8(0x82us, buf),
+      WasmInstr_I64_And => Buffer.addUint8(0x83us, buf),
+      WasmInstr_I64_Or => Buffer.addUint8(0x84us, buf),
+      WasmInstr_I64_Xor => Buffer.addUint8(0x85us, buf),
+      WasmInstr_I64_Shl => Buffer.addUint8(0x86us, buf),
+      WasmInstr_I64_Shr_S => Buffer.addUint8(0x87us, buf),
+      WasmInstr_I64_Shr_U => Buffer.addUint8(0x88us, buf),
+      WasmInstr_I64_Rotl => Buffer.addUint8(0x89us, buf),
+      WasmInstr_I64_Rotr => Buffer.addUint8(0x8Aus, buf),
+      WasmInstr_F32_Abs => Buffer.addUint8(0x8Bus, buf),
+      WasmInstr_F32_Neg => Buffer.addUint8(0x8Cus, buf),
+      WasmInstr_F32_Ceil => Buffer.addUint8(0x8Dus, buf),
+      WasmInstr_F32_Floor => Buffer.addUint8(0x8Eus, buf),
+      WasmInstr_F32_Trunc => Buffer.addUint8(0x8Fus, buf),
+      WasmInstr_F32_Nearest => Buffer.addUint8(0x90us, buf),
+      WasmInstr_F32_Sqrt => Buffer.addUint8(0x91us, buf),
+      WasmInstr_F32_Add => Buffer.addUint8(0x92us, buf),
+      WasmInstr_F32_Sub => Buffer.addUint8(0x93us, buf),
+      WasmInstr_F32_Mul => Buffer.addUint8(0x94us, buf),
+      WasmInstr_F32_Div => Buffer.addUint8(0x95us, buf),
+      WasmInstr_F32_Min => Buffer.addUint8(0x96us, buf),
+      WasmInstr_F32_Max => Buffer.addUint8(0x97us, buf),
+      WasmInstr_F32_CopySign => Buffer.addUint8(0x98us, buf),
+      WasmInstr_F64_Abs => Buffer.addUint8(0x99us, buf),
+      WasmInstr_F64_Neg => Buffer.addUint8(0x9Aus, buf),
+      WasmInstr_F64_Ceil => Buffer.addUint8(0x9Bus, buf),
+      WasmInstr_F64_Floor => Buffer.addUint8(0x9Cus, buf),
+      WasmInstr_F64_Trunc => Buffer.addUint8(0x9Dus, buf),
+      WasmInstr_F64_Nearest => Buffer.addUint8(0x9Eus, buf),
+      WasmInstr_F64_Sqrt => Buffer.addUint8(0x9Fus, buf),
+      WasmInstr_F64_Add => Buffer.addUint8(0xA0us, buf),
+      WasmInstr_F64_Sub => Buffer.addUint8(0xA1us, buf),
+      WasmInstr_F64_Mul => Buffer.addUint8(0xA2us, buf),
+      WasmInstr_F64_Div => Buffer.addUint8(0xA3us, buf),
+      WasmInstr_F64_Min => Buffer.addUint8(0xA4us, buf),
+      WasmInstr_F64_Max => Buffer.addUint8(0xA5us, buf),
+      WasmInstr_F64_CopySign => Buffer.addUint8(0xA6us, buf),
+      WasmInstr_I32_Wrap_I64 => Buffer.addUint8(0xA7us, buf),
+      WasmInstr_I32_Trunc_F32_S => Buffer.addUint8(0xA8us, buf),
+      WasmInstr_I32_Trunc_F32_U => Buffer.addUint8(0xA9us, buf),
+      WasmInstr_I32_Trunc_F64_S => Buffer.addUint8(0xAAus, buf),
+      WasmInstr_I32_Trunc_F64_U => Buffer.addUint8(0xABus, buf),
+      WasmInstr_I64_Extend_I32_S => Buffer.addUint8(0xACus, buf),
+      WasmInstr_I64_Extend_I32_U => Buffer.addUint8(0xADus, buf),
+      WasmInstr_I64_Trunc_F32_S => Buffer.addUint8(0xAEus, buf),
+      WasmInstr_I64_Trunc_F32_U => Buffer.addUint8(0xAFus, buf),
+      WasmInstr_I64_Trunc_F64_S => Buffer.addUint8(0xB0us, buf),
+      WasmInstr_I64_Trunc_F64_U => Buffer.addUint8(0xB1us, buf),
+      WasmInstr_F32_Convert_I32_S => Buffer.addUint8(0xB2us, buf),
+      WasmInstr_F32_Convert_I32_U => Buffer.addUint8(0xB3us, buf),
+      WasmInstr_F32_Convert_I64_S => Buffer.addUint8(0xB4us, buf),
+      WasmInstr_F32_Convert_I64_U => Buffer.addUint8(0xB5us, buf),
+      WasmInstr_F32_Demote_F64 => Buffer.addUint8(0xB6us, buf),
+      WasmInstr_F64_Convert_I32_S => Buffer.addUint8(0xB7us, buf),
+      WasmInstr_F64_Convert_I32_U => Buffer.addUint8(0xB8us, buf),
+      WasmInstr_F64_Convert_I64_S => Buffer.addUint8(0xB9us, buf),
+      WasmInstr_F64_Convert_I64_U => Buffer.addUint8(0xBAus, buf),
+      WasmInstr_F64_Promote_F32 => Buffer.addUint8(0xBBus, buf),
+      WasmInstr_I32_Reinterpret_F32 => Buffer.addUint8(0xBCus, buf),
+      WasmInstr_I64_Reinterpret_F64 => Buffer.addUint8(0xBDus, buf),
+      WasmInstr_F32_Reinterpret_I32 => Buffer.addUint8(0xBEus, buf),
+      WasmInstr_F64_Reinterpret_I64 => Buffer.addUint8(0xBFus, buf),
+      WasmInstr_I32_Extend8_S => Buffer.addUint8(0xC0us, buf),
+      WasmInstr_I32_Extend16_S => Buffer.addUint8(0xC1us, buf),
+      WasmInstr_I64_Extend8_S => Buffer.addUint8(0xC2us, buf),
+      WasmInstr_I64_Extend16_S => Buffer.addUint8(0xC3us, buf),
+      WasmInstr_I64_Extend32_S => Buffer.addUint8(0xC4us, buf),
+      WasmInstr_I32_TruncSat_F32_S => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(0, buf)
+      },
+      WasmInstr_I32_TruncSat_F32_U => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(1, buf)
+      },
+      WasmInstr_I32_TruncSat_F64_S => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(2, buf)
+      },
+      WasmInstr_I32_TruncSat_F64_U => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(3, buf)
+      },
+      WasmInstr_I64_TruncSat_F32_S => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(4, buf)
+      },
+      WasmInstr_I64_TruncSat_F32_U => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(5, buf)
+      },
+      WasmInstr_I64_TruncSat_F64_S => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(6, buf)
+      },
+      WasmInstr_I64_TruncSat_F64_U => {
+        Buffer.addUint8(0xFCus, buf)
+        bufAddUleb128(7, buf)
+      },
+      // Vector Instructions
+      WasmInstr_V128_Load(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(0, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_8x8_Load_S(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(1, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_8x8_Load_U(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(2, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_16x4_Load_S(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(3, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_16x4_Load_U(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(4, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_32x2_Load_S(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(5, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_32x2_Load_U(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(6, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Load_8_Splat(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(7, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Load_16_Splat(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(8, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Load_32_Splat(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(9, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Load_64_Splat(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(10, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_Load_32_Zero(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(92, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_Load_64_Zero(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(93, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Store(memoryArg) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(11, buf)
+        buildMemArg(memoryArg, buf)
+      },
+      WasmInstr_V128_Load8_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(84, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Load16_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(85, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Load32_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(86, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Load64_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(87, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Store8_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(88, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Store16_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(89, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Store32_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(90, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      WasmInstr_V128_Store64_Lane(memoryArg, laneIdx) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(91, buf)
+        buildMemArg(memoryArg, buf)
+        bufAddUleb128(laneIdx, buf)
+      },
+      // TODO: Validate this
+      WasmInstr_V128_Const(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(12, buf)
+        let lowerBits = Int64.fromNumber(n & 0xFFFFFFFF00000000)
+        let upperBits = Int64.fromNumber(n & 0x00000000FFFFFFFF)
+        Buffer.addInt64(lowerBits, buf)
+        Buffer.addInt64(upperBits, buf)
+      },
+      // TODO: Validate this
+      WasmInstr_I8x16_Shuffle(
+        laneIdx1,
+        laneIdx2,
+        laneIdx3,
+        laneIdx4,
+        laneIdx5,
+        laneIdx6,
+        laneIdx7,
+        laneIdx8,
+        laneIdx9,
+        laneIdx10,
+        laneIdx11,
+        laneIdx12,
+        laneIdx13,
+        laneIdx14,
+        laneIdx15,
+        laneIdx16
+      ) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(13, buf)
+        Buffer.addUint8(laneIdx1, buf)
+        Buffer.addUint8(laneIdx2, buf)
+        Buffer.addUint8(laneIdx3, buf)
+        Buffer.addUint8(laneIdx4, buf)
+        Buffer.addUint8(laneIdx5, buf)
+        Buffer.addUint8(laneIdx6, buf)
+        Buffer.addUint8(laneIdx7, buf)
+        Buffer.addUint8(laneIdx8, buf)
+        Buffer.addUint8(laneIdx9, buf)
+        Buffer.addUint8(laneIdx10, buf)
+        Buffer.addUint8(laneIdx11, buf)
+        Buffer.addUint8(laneIdx12, buf)
+        Buffer.addUint8(laneIdx13, buf)
+        Buffer.addUint8(laneIdx14, buf)
+        Buffer.addUint8(laneIdx15, buf)
+        Buffer.addUint8(laneIdx16, buf)
+      },
+      WasmInstr_I8x16_Extract_Lane_S(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(21, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I8x16_Extract_Lane_U(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(22, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I8x16_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(23, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I16x8_Extract_Lane_S(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(24, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I16x8_Extract_Lane_U(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(25, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I16x8_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(26, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I32x4_Extract_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(27, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I32x4_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(28, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I64x2_Extract_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(29, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I64x2_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(30, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_F32x4_Extract_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(31, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_F32x4_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(32, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_F64x2_Extract_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(33, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_F64x2_Replace_Lane(n) => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(34, buf)
+        bufAddUleb128(n, buf)
+      },
+      WasmInstr_I8x16_Swizzle => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(14, buf)
+      },
+      WasmInstr_I8x16_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(15, buf)
+      },
+      WasmInstr_I16x8_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(16, buf)
+      },
+      WasmInstr_I32x4_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(17, buf)
+      },
+      WasmInstr_I64x2_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(18, buf)
+      },
+      WasmInstr_F32x4_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(19, buf)
+      },
+      WasmInstr_F64x2_Splat => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(20, buf)
+      },
+      WasmInstr_I8x16_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(35, buf)
+      },
+      WasmInstr_I8x16_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(36, buf)
+      },
+      WasmInstr_I8x16_Lt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(37, buf)
+      },
+      WasmInstr_I8x16_Lt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(38, buf)
+      },
+      WasmInstr_I8x16_Gt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(39, buf)
+      },
+      WasmInstr_I8x16_Gt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(40, buf)
+      },
+      WasmInstr_I8x16_Le_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(41, buf)
+      },
+      WasmInstr_I8x16_Le_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(42, buf)
+      },
+      WasmInstr_I8x16_Ge_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(43, buf)
+      },
+      WasmInstr_I8x16_Ge_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(44, buf)
+      },
+      WasmInstr_I16x8_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(45, buf)
+      },
+      WasmInstr_I16x8_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(46, buf)
+      },
+      WasmInstr_I16x8_Lt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(47, buf)
+      },
+      WasmInstr_I16x8_Lt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(48, buf)
+      },
+      WasmInstr_I16x8_Gt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(49, buf)
+      },
+      WasmInstr_I16x8_Gt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(50, buf)
+      },
+      WasmInstr_I16x8_Le_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(51, buf)
+      },
+      WasmInstr_I16x8_Le_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(52, buf)
+      },
+      WasmInstr_I16x8_Ge_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(53, buf)
+      },
+      WasmInstr_I16x8_Ge_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(54, buf)
+      },
+      WasmInstr_I32x4_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(55, buf)
+      },
+      WasmInstr_I32x4_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(56, buf)
+      },
+      WasmInstr_I32x4_Lt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(57, buf)
+      },
+      WasmInstr_I32x4_Lt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(58, buf)
+      },
+      WasmInstr_I32x4_Gt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(59, buf)
+      },
+      WasmInstr_I32x4_Gt_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(60, buf)
+      },
+      WasmInstr_I32x4_Le_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(61, buf)
+      },
+      WasmInstr_I32x4_Le_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(62, buf)
+      },
+      WasmInstr_I32x4_Ge_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(63, buf)
+      },
+      WasmInstr_I32x4_Ge_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(64, buf)
+      },
+      WasmInstr_I64x2_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(214, buf)
+      },
+      WasmInstr_I64x2_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(215, buf)
+      },
+      WasmInstr_I64x2_Lt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(216, buf)
+      },
+      WasmInstr_I64x2_Gt_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(217, buf)
+      },
+      WasmInstr_I64x2_Le_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(218, buf)
+      },
+      WasmInstr_I64x2_Ge_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(219, buf)
+      },
+      WasmInstr_F32x4_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(65, buf)
+      },
+      WasmInstr_F32x4_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(66, buf)
+      },
+      WasmInstr_F32x4_Lt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(67, buf)
+      },
+      WasmInstr_F32x4_Gt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(68, buf)
+      },
+      WasmInstr_F32x4_Le => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(69, buf)
+      },
+      WasmInstr_F32x4_Ge => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(70, buf)
+      },
+      WasmInstr_F64x2_Eq => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(71, buf)
+      },
+      WasmInstr_F64x2_Ne => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(72, buf)
+      },
+      WasmInstr_F64x2_Lt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(73, buf)
+      },
+      WasmInstr_F64x2_Gt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(74, buf)
+      },
+      WasmInstr_F64x2_Le => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(75, buf)
+      },
+      WasmInstr_F64x2_Ge => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(76, buf)
+      },
+      WasmInstr_V128_Not => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(77, buf)
+      },
+      WasmInstr_V128_And => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(78, buf)
+      },
+      WasmInstr_V128_And_Not => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(79, buf)
+      },
+      WasmInstr_V128_Or => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(80, buf)
+      },
+      WasmInstr_V128_Xor => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(81, buf)
+      },
+      WasmInstr_V128_Bitselect => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(82, buf)
+      },
+      WasmInstr_V128_Any_True => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(83, buf)
+      },
+      WasmInstr_I8x16_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(96, buf)
+      },
+      WasmInstr_I8x16_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(97, buf)
+      },
+      WasmInstr_I8x16_Popcnt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(98, buf)
+      },
+      WasmInstr_I8x16_All_True => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(99, buf)
+      },
+      WasmInstr_I8x16_Bitmask => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(100, buf)
+      },
+      WasmInstr_I8x16_Narrow_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(101, buf)
+      },
+      WasmInstr_I8x16_Narrow_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(102, buf)
+      },
+      WasmInstr_I8x16_Shl => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(107, buf)
+      },
+      WasmInstr_I8x16_Shr_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(108, buf)
+      },
+      WasmInstr_I8x16_Shr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(109, buf)
+      },
+      WasmInstr_I8x16_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(110, buf)
+      },
+      WasmInstr_I8x16_Add_Sat_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(111, buf)
+      },
+      WasmInstr_I8x16_Add_Sat_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(112, buf)
+      },
+      WasmInstr_I8x16_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(113, buf)
+      },
+      WasmInstr_I8x16_Sub_Sat_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(114, buf)
+      },
+      WasmInstr_I8x16_Sub_Sat_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(115, buf)
+      },
+      WasmInstr_I8x16_Min_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(118, buf)
+      },
+      WasmInstr_I8x16_Min_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(119, buf)
+      },
+      WasmInstr_I8x16_Max_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(120, buf)
+      },
+      WasmInstr_I8x16_Max_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(121, buf)
+      },
+      WasmInstr_I8x16_Avgr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(123, buf)
+      },
+      WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(124, buf)
+      },
+      WasmInstr_I16x8_ExtAdd_Pairwise_I8x16_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(125, buf)
+      },
+      WasmInstr_I16x8_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(128, buf)
+      },
+      WasmInstr_I16x8_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(129, buf)
+      },
+      WasmInstr_I16x8_q15mulr_sat_s => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(130, buf)
+      },
+      WasmInstr_I16x8_All_True => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(131, buf)
+      },
+      WasmInstr_I16x8_Bitmask => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(132, buf)
+      },
+      WasmInstr_I16x8_Narrow_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(133, buf)
+      },
+      WasmInstr_I16x8_Narrow_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(134, buf)
+      },
+      WasmInstr_I16x8_Extend_Low_I8x16_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(135, buf)
+      },
+      WasmInstr_I16x8_Extend_High_I8x16_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(136, buf)
+      },
+      WasmInstr_I16x8_Extend_Low_I8x16_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(137, buf)
+      },
+      WasmInstr_I16x8_Extend_High_I8x16_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(138, buf)
+      },
+      WasmInstr_I16x8_Shl => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(139, buf)
+      },
+      WasmInstr_I16x8_Shr_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(140, buf)
+      },
+      WasmInstr_I16x8_Shr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(141, buf)
+      },
+      WasmInstr_I16x8_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(142, buf)
+      },
+      WasmInstr_I16x8_Add_Sat_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(143, buf)
+      },
+      WasmInstr_I16x8_Add_Sat_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(144, buf)
+      },
+      WasmInstr_I16x8_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(145, buf)
+      },
+      WasmInstr_I16x8_Sub_Sat_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(146, buf)
+      },
+      WasmInstr_I16x8_Sub_Sat_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(147, buf)
+      },
+      WasmInstr_I16x8_Mul => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(149, buf)
+      },
+      WasmInstr_I16x8_Min_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(150, buf)
+      },
+      WasmInstr_I16x8_Min_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(151, buf)
+      },
+      WasmInstr_I16x8_Max_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(152, buf)
+      },
+      WasmInstr_I16x8_Max_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(153, buf)
+      },
+      WasmInstr_I16x8_Avgr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(155, buf)
+      },
+      WasmInstr_I16x8_ExtMulLow_I8x16_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(156, buf)
+      },
+      WasmInstr_I16x8_ExtMulHigh_I8x16_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(157, buf)
+      },
+      WasmInstr_I16x8_ExtMulLow_I8x16_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(158, buf)
+      },
+      WasmInstr_I16x8_ExtMulHigh_I8x16_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(159, buf)
+      },
+      WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(126, buf)
+      },
+      WasmInstr_I32x4_ExtAdd_Pairwise_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(127, buf)
+      },
+      WasmInstr_I32x4_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(160, buf)
+      },
+      WasmInstr_I32x4_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(161, buf)
+      },
+      WasmInstr_I32x4_All_True => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(163, buf)
+      },
+      WasmInstr_I32x4_Bitmask => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(164, buf)
+      },
+      WasmInstr_I32x4_Extend_Low_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(167, buf)
+      },
+      WasmInstr_I32x4_Extend_High_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(168, buf)
+      },
+      WasmInstr_I32x4_Extend_Low_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(169, buf)
+      },
+      WasmInstr_I32x4_Extend_High_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(170, buf)
+      },
+      WasmInstr_I32x4_Shl => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(171, buf)
+      },
+      WasmInstr_I32x4_Shr_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(172, buf)
+      },
+      WasmInstr_I32x4_Shr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(173, buf)
+      },
+      WasmInstr_I32x4_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(174, buf)
+      },
+      WasmInstr_I32x4_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(177, buf)
+      },
+      WasmInstr_I32x4_Mul => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(181, buf)
+      },
+      WasmInstr_I32x4_Min_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(182, buf)
+      },
+      WasmInstr_I32x4_Min_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(183, buf)
+      },
+      WasmInstr_I32x4_Max_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(184, buf)
+      },
+      WasmInstr_I32x4_Max_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(185, buf)
+      },
+      WasmInstr_I32x4_Dot_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(186, buf)
+      },
+      WasmInstr_I32x4_ExtMulLow_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(188, buf)
+      },
+      WasmInstr_I32x4_ExtMulHigh_I16x8_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(189, buf)
+      },
+      WasmInstr_I32x4_ExtMulLow_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(190, buf)
+      },
+      WasmInstr_I32x4_ExtMulHigh_I16x8_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(191, buf)
+      },
+      WasmInstr_I64x2_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(192, buf)
+      },
+      WasmInstr_I64x2_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(193, buf)
+      },
+      WasmInstr_I64x2_All_True => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(195, buf)
+      },
+      WasmInstr_I64x2_Bitmask => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(196, buf)
+      },
+      WasmInstr_I64x2_Extend_Low_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(199, buf)
+      },
+      WasmInstr_I64x2_Extend_High_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(200, buf)
+      },
+      WasmInstr_I64x2_Extend_Low_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(201, buf)
+      },
+      WasmInstr_I64x2_Extend_High_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(202, buf)
+      },
+      WasmInstr_I64x2_Shl => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(203, buf)
+      },
+      WasmInstr_I64x2_Shr_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(204, buf)
+      },
+      WasmInstr_I64x2_Shr_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(205, buf)
+      },
+      WasmInstr_I64x2_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(206, buf)
+      },
+      WasmInstr_I64x2_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(209, buf)
+      },
+      WasmInstr_I64x2_Mul => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(213, buf)
+      },
+      WasmInstr_I64x2_ExtMulLow_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(220, buf)
+      },
+      WasmInstr_I64x2_ExtMulHigh_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(221, buf)
+      },
+      WasmInstr_I64x2_ExtMulLow_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(222, buf)
+      },
+      WasmInstr_I64x2_ExtMulHigh_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(223, buf)
+      },
+      WasmInstr_F32x4_Ceil => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(103, buf)
+      },
+      WasmInstr_F32x4_Floor => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(104, buf)
+      },
+      WasmInstr_F32x4_Trunc => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(105, buf)
+      },
+      WasmInstr_F32x4_Nearest => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(106, buf)
+      },
+      WasmInstr_F32x4_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(224, buf)
+      },
+      WasmInstr_F32x4_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(225, buf)
+      },
+      WasmInstr_F32x4_Sqrt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(227, buf)
+      },
+      WasmInstr_F32x4_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(228, buf)
+      },
+      WasmInstr_F32x4_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(229, buf)
+      },
+      WasmInstr_F32x4_Mul => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(230, buf)
+      },
+      WasmInstr_F32x4_Div => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(231, buf)
+      },
+      WasmInstr_F32x4_Min => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(232, buf)
+      },
+      WasmInstr_F32x4_Max => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(233, buf)
+      },
+      WasmInstr_F32x4_Pmin => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(234, buf)
+      },
+      WasmInstr_F32x4_Pmax => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(235, buf)
+      },
+      WasmInstr_F64x2_Ceil => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(216, buf)
+      },
+      WasmInstr_F64x2_Floor => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(217, buf)
+      },
+      WasmInstr_F64x2_Trunc => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(222, buf)
+      },
+      WasmInstr_F64x2_Nearest => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(248, buf)
+      },
+      WasmInstr_F64x2_Abs => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(236, buf)
+      },
+      WasmInstr_F64x2_Neg => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(237, buf)
+      },
+      WasmInstr_F64x2_Sqrt => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(239, buf)
+      },
+      WasmInstr_F64x2_Add => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(240, buf)
+      },
+      WasmInstr_F64x2_Sub => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(241, buf)
+      },
+      WasmInstr_F64x2_Mul => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(242, buf)
+      },
+      WasmInstr_F64x2_Div => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(243, buf)
+      },
+      WasmInstr_F64x2_Min => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(244, buf)
+      },
+      WasmInstr_F64x2_Max => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(245, buf)
+      },
+      WasmInstr_F64x2_Pmin => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(246, buf)
+      },
+      WasmInstr_F64x2_Pmax => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(247, buf)
+      },
+      WasmInstr_I32x4_Trunc_Sat_F32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(248, buf)
+      },
+      WasmInstr_I32x4_Trunc_Sat_F32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(249, buf)
+      },
+      WasmInstr_F32x4_Convert_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(250, buf)
+      },
+      WasmInstr_F32x4_Convert_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(251, buf)
+      },
+      WasmInstr_I32x4_Trunc_Sat_F64x2_S_Zero => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(252, buf)
+      },
+      WasmInstr_I32x4_Trunc_Sat_F64x2_U_Zero => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(253, buf)
+      },
+      WasmInstr_F64x2_ConvertLow_I32x4_S => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(254, buf)
+      },
+      WasmInstr_F64x2_ConvertLow_I32x4_U => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(255, buf)
+      },
+      WasmInstr_F32x4_Demote_F64x2_Zero => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(94, buf)
+      },
+      WasmInstr_F64x2_PromoteLow_F32x4 => {
+        Buffer.addUint8(0xFDus, buf)
+        bufAddUleb128(295, buf)
+      },
+      // End
+      // TODO: Realistically you should never be able to get an else instr we need to get rid of this instruction code
+      WasmInstr_Else => Buffer.addUint8(0x05us, buf),
+      WasmInstr_End => Buffer.addUint8(0x0Bus, buf),
+    }
+    return None
+  }
+  and buildExpr = (expr, buf) => {
+    let mut err = None
+    // TODO: Consider using Some to stop when we find an error instantly
+    List.forEach(instr => {
+      if (err != None) return
+      err = buildInstr(instr, buf)
+      return
+    }, expr)
+    err
+  }
 
   // Build Each Section
-  let buildCustomSection = (bytes: Bytes) => void
-  let buildTypeSection = (wasmTypes: List<WasmType>) => void
-  let buildImportSection = (wasmImports: List<WasmImport>) => void
-  let buildFunctionSection = (funcs: List<Number>) => void
-  let buildTableSection = (tables: List<WasmTableType>) => void
-  let buildMemorySection = (mems: List<(Number, Option<Number>)>) => void
-  let buildGlobalSection = (globals: List<(WasmGlobalType, Expression)>) => void
-  let buildExportSection = (exports: List<WasmExportType>) => void
-  let buildStartSection = (startFunc: Number) => void
-  let buildElementSection = (elements: List<WasmElementSegment>) => void
-  let buildDataCountSection = (dataCount: Number) => void
-  let buildCodeSection = (funcs: List<WasmFunctionType>) => void
-  let buildDataSection = (dataElems: List<WasmDataSegment>) => void
+  let buildCustomSection = (bytes: Bytes) => Ok(RawCustomSection(bytes))
+  let buildTypeSection = (wasmTypes: List<WasmType>) => {
+    let buf = Buffer.make(0)
+    // Add Type Count
+    bufAddUleb128(List.length(wasmTypes), buf)
+    // Go Through Types
+    let mut err = None
+    List.forEach(wasmType => {
+      if (err != None) return
+      // Compile The Type
+      match (wasmType) {
+        WasmFuncType(params, returns) => {
+          // Add Func Type ID
+          Buffer.addUint8(0x60us, buf)
+          // Compile Params
+          bufAddUleb128(List.length(params), buf)
+          List.forEach(param => {
+            match (param) {
+              // TODO: Break this into a compile WasmType
+              WasmI32 => Buffer.addUint8(0x7Fus, buf),
+              WasmI64 => Buffer.addUint8(0x7Eus, buf),
+              WasmF32 => Buffer.addUint8(0x7Dus, buf),
+              WasmF64 => Buffer.addUint8(0x7Cus, buf),
+              _ => err = Some(Err(InvalidTypeInFunction)),
+            }
+          }, params)
+          // Compile Returns
+          bufAddUleb128(List.length(returns), buf)
+          List.forEach(ret => {
+            match (ret) {
+              WasmI32 => Buffer.addUint8(0x7Fus, buf),
+              WasmI64 => Buffer.addUint8(0x7Eus, buf),
+              WasmF32 => Buffer.addUint8(0x7Dus, buf),
+              WasmF64 => Buffer.addUint8(0x7Cus, buf),
+              _ => err = Some(Err(InvalidTypeInFunction)),
+            }
+          }, returns)
+        },
+        _ => err = Some(Err(InvalidTypeInTypeSection)),
+      }
+      return
+    }, wasmTypes)
+    // Return output
+    match (err) {
+      Some(e) => e,
+      None => Ok(RawTypeSection(Buffer.toBytes(buf))),
+    }
+  }
+  let buildImportSection = (wasmImports: List<WasmImport>) => {
+    let buf = Buffer.make(0)
+    // Add Import Count
+    bufAddUleb128(List.length(wasmImports), buf)
+    // Compile The Imports
+    let mut err = None
+    List.forEach(wasmImport => {
+      if (err != None) return
+      // Compile The Import Name
+      buffAddStr(wasmImport.importModName, buf)
+      // Compile The Import Module Name
+      buffAddStr(wasmImport.importName, buf)
+      // Compile The Import Description
+      match (wasmImport.importDesc) {
+        WasmFuncImportDesc(funcIdx) => {
+          // Add Import Desc ID
+          Buffer.addUint8(0x00us, buf)
+          // Add Func Index
+          bufAddUleb128(funcIdx, buf)
+        },
+        WasmTableImportDesc(tableType) => {
+          // Add Import Desc ID
+          Buffer.addUint8(0x01us, buf)
+          // Add Table Type Info
+          match (tableType.wasmType) {
+            // TODO: Break this into a compile WasmType
+            WasmFuncRef => Buffer.addUint8(0x70us, buf),
+            WasmExternRef => Buffer.addUint8(0x6Fus, buf),
+            _ => {
+              err = Some(Err(InvalidTableTypeImport))
+              return
+            },
+          }
+          // Add Table Limits
+          buildLimit(tableType.minLimit, tableType.maxLimit, buf)
+        },
+        WasmMemoryImportDesc(minVal, maxVal) => {
+          // Add Import Desc ID
+          Buffer.addUint8(0x02us, buf)
+          // Add Memory Limits
+          buildLimit(minVal, maxVal, buf)
+        },
+        WasmGlobalImportDesc(globalType) => {
+          // Add Import Desc ID
+          Buffer.addUint8(0x03us, buf)
+          // Compile Global Info
+          match (buildWasmGlobal(globalType, buf)) {
+            Some(e) => {
+              err = Some(Err(e))
+              return
+            },
+            None => void,
+          }
+        },
+      }
+      return
+    }, wasmImports)
+    // Return The Output
+    match (err) {
+      Some(e) => e,
+      None => Ok(RawImportSection(Buffer.toBytes(buf))),
+    }
+  }
+  let buildFunctionSection = (funcs: List<Number>) => {
+    let buf = Buffer.make(0)
+    // Add Function Count
+    bufAddUleb128(List.length(funcs), buf)
+    // Compile Each Function
+    List.forEach(func => {
+      // Add Function Index
+      bufAddUleb128(func, buf)
+    }, funcs)
+    // Return The Output
+    Ok(RawFunctionSection(Buffer.toBytes(buf)))
+  }
+  let buildTableSection = (tables: List<WasmTableType>) => {
+    let buf = Buffer.make(0)
+    // Add Table Count
+    bufAddUleb128(List.length(tables), buf)
+    // Compile Each Table
+    let mut err = None
+    List.forEach((table: WasmTableType) => {
+      if (err != None) return
+      // Add Table Type Info
+      match (table.wasmType) {
+        // TODO: Break this into a compile WasmType
+        WasmFuncRef => Buffer.addUint8(0x70us, buf),
+        WasmExternRef => Buffer.addUint8(0x6Fus, buf),
+        _ => {
+          err = Some(Err(InvalidTableTypeImport))
+          return
+        },
+      }
+      // Add Table Limits
+      buildLimit(table.minLimit, table.maxLimit, buf)
+      return
+    }, tables)
+    // Return The Output
+    match (err) {
+      Some(e) => e,
+      None => Ok(RawTableSection(Buffer.toBytes(buf))),
+    }
+  }
+  let buildMemorySection = (mems: List<(Number, Option<Number>)>) => {
+    let buf = Buffer.make(0)
+    // Add Mem Count
+    bufAddUleb128(List.length(mems), buf)
+    // Compile Each Memory
+    List.forEach(((minLimit, maxLimit)) => {
+      buildLimit(minLimit, maxLimit, buf)
+    }, mems)
+    // Return
+    Ok(RawMemorySection(Buffer.toBytes(buf)))
+  }
+  let buildGlobalSection = (globals: List<(WasmGlobalType, Expression)>) => {
+    let buf = Buffer.make(0)
+    // Add Global Count
+    bufAddUleb128(List.length(globals), buf)
+    // Compile Each Global
+    let mut err = None
+    List.forEach(((globalType, globalInit)) => {
+      if (err != None) return
+      // Compile Global Type
+      match (buildWasmGlobal(globalType, buf)) {
+        Some(e) => {
+          err = Some(Err(e))
+          return
+        },
+        None => void,
+      }
+      // Compile Global Init
+      match (buildExpr(globalInit, buf)) {
+        Some(e) => {
+          err = Some(Err(e))
+          return
+        },
+        None => void,
+      }
+      return
+    }, globals)
+    // Return
+    match (err) {
+      Some(e) => e,
+      None => Ok(RawGlobalSection(Buffer.toBytes(buf))),
+    }
+  }
+  // TODO: Implement this
+  let buildExportSection = (exports: List<WasmExportType>) =>
+    Ok(RawExportSection(Bytes.make(0)))
+  let buildStartSection = (startFunc: Number) => {
+    let buf = Buffer.make(0)
+    // Add Our StartFunc idx
+    bufAddUleb128(startFunc, buf)
+    // Return
+    Ok(RawStartSection(Buffer.toBytes(buf)))
+  }
+  // TODO: Implement this
+  let buildElementSection = (elements: List<WasmElementSegment>) =>
+    Ok(RawElementSection(Bytes.make(0)))
+  // TODO: Implement this
+  let buildDataCountSection = (dataCount: Number) =>
+    Ok(RawDataCountSection(Bytes.make(0)))
+  // TODO: Implement this
+  let buildCodeSection = (funcs: List<WasmFunctionType>) =>
+    Ok(RawCodeSection(Bytes.make(0)))
+  // TODO: Implement this
+  let buildDataSection = (dataElems: List<WasmDataSegment>) =>
+    Ok(RawDataSection(Bytes.make(0)))
 
   /**
    * Compiles a Wasm Section.
@@ -2618,7 +4553,28 @@ provide module Builder {
    */
 
   provide let buildSections = (sections: List<Sections>) => {
-    List.map((section: Sections) => buildSection(section), sections)
+    // Compile Sections
+    let compiledSections = List.map((section: Sections) =>
+      buildSection(section), sections)
+    // Check For Err's
+    let mut err = None
+    let verifiedSections = List.map(section => {
+      if (err != None) return RawCustomSection(Bytes.make(0))
+      match (section) {
+        Ok(section) => return section,
+        Err(e) => {
+          // Set The Err
+          err = Some(e)
+          // Return A Dummy Section
+          return RawCustomSection(Bytes.make(0))
+        },
+      }
+    }, compiledSections)
+    // Handle Return
+    match (err) {
+      Some(e) => Err(e),
+      None => Ok(verifiedSections),
+    }
   }
 
   /**
@@ -2661,6 +4617,8 @@ provide module Builder {
         RawDataSection(bytes) => buildRawSection(0x0bus, bytes, wasmFile),
       }
     }, sections)
-    return wasmFile
+    return Buffer.toBytes(wasmFile)
   }
 }
+// TODO: Validator
+// TODO: Optimizer
