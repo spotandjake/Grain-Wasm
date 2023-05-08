@@ -2699,17 +2699,16 @@ provide module Builder {
   let buildBlockType = (blockType: WasmType, buf: Buffer.Buffer) => {
     // TODO: Roll this into the compile type
     match (blockType) {
-      EmptyType => {
-        Buffer.addUint8(0x40us, buf)
-        None
-      },
-      TypeIdx(typeIdx) => {
-        // TODO: We need to encode this specially
-        bufAddLeb128(typeIdx, buf)
-        None
-      },
-      _ => Some(InvalidWasmBlockType),
+      EmptyType => Buffer.addUint8(0x40us, buf),
+      WasmI32 => Buffer.addUint8(0x7Fus, buf),
+      WasmI64 => Buffer.addUint8(0x7Eus, buf),
+      WasmF32 => Buffer.addUint8(0x7Dus, buf),
+      WasmF64 => Buffer.addUint8(0x7Cus, buf),
+      // TODO: We need to encode this specially
+      TypeIdx(typeIdx) => bufAddLeb128(typeIdx, buf),
+      _ => return Some(InvalidWasmBlockType),
     }
+    return None
   }
   let buildLimit = (min: Number, max: Option<Number>, buf: Buffer.Buffer) => {
     match (max) {
@@ -2757,6 +2756,7 @@ provide module Builder {
   }
   // Build Expr
   let rec buildInstr = (instr, buf) => {
+    // TODO: Refactor this to take advantage of tail calls
     match (instr) {
       // Control Instructions
       WasmInstr_Unreachable => Buffer.addUint8(0x00us, buf),
@@ -2769,10 +2769,7 @@ provide module Builder {
           None => void,
         }
         // Compile Block
-        match (buildExpr(expr, buf)) {
-          Some(err) => return Some(err),
-          None => void,
-        }
+        return buildExpr(expr, buf)
       },
       WasmInstr_Loop(blockType, expr) => {
         Buffer.addUint8(0x03us, buf)
@@ -2782,10 +2779,7 @@ provide module Builder {
           None => void,
         }
         // Compile Block
-        match (buildExpr(expr, buf)) {
-          Some(err) => return Some(err),
-          None => void,
-        }
+        return buildExpr(expr, buf)
       },
       WasmInstr_If(blockType, expr) => {
         Buffer.addUint8(0x04us, buf)
@@ -2795,10 +2789,7 @@ provide module Builder {
           None => void,
         }
         // Compile Block
-        match (buildExpr(expr, buf)) {
-          Some(err) => return Some(err),
-          None => void,
-        }
+        return buildExpr(expr, buf)
       },
       WasmInstr_If_Else(blockType, exprTrue, exprFalse) => {
         Buffer.addUint8(0x02us, buf)
@@ -2813,10 +2804,7 @@ provide module Builder {
           None => void,
         }
         Buffer.addUint8(0x05us, buf)
-        match (buildExpr(exprFalse, buf)) {
-          Some(err) => return Some(err),
-          None => void,
-        }
+        return buildExpr(exprFalse, buf)
       },
       WasmInstr_Br(labelIdx) => {
         Buffer.addUint8(0x0Cus, buf)
@@ -4290,6 +4278,7 @@ provide module Builder {
     return None
   }
   and buildExpr = (expr, buf) => {
+    // TODO: Refactor this to take advantage of tail calls
     let mut err = None
     // TODO: Consider using Some to stop when we find an error instantly
     List.forEach(instr => {
@@ -4512,8 +4501,46 @@ provide module Builder {
   let buildDataCountSection = (dataCount: Number) =>
     Ok(RawDataCountSection(Bytes.make(0)))
   // TODO: Implement this
-  let buildCodeSection = (funcs: List<WasmFunctionType>) =>
-    Ok(RawCodeSection(Bytes.make(0)))
+  let buildCodeSection = (funcs: List<WasmFunctionType>) => {
+    let buf = Buffer.make(0)
+    // Add Code Count
+    bufAddUleb128(List.length(funcs), buf)
+    // For Each Code
+    let mut err = None
+    List.forEach(func => {
+      if (err != None) return
+      // Add Local Info
+      bufAddUleb128(List.length(func.locals), buf)
+      List.forEach(local => {
+        if (err != None) return
+        bufAddUleb128(local.count, buf)
+        match (local.wasmType) {
+          // TODO: Break this into a compile WasmType
+          WasmI32 => Buffer.addUint8(0x7Fus, buf),
+          WasmI64 => Buffer.addUint8(0x7Eus, buf),
+          WasmF32 => Buffer.addUint8(0x7Dus, buf),
+          WasmF64 => Buffer.addUint8(0x7Cus, buf),
+          _ => err = Some(InvalidTypeInFunction),
+        }
+        return
+      }, func.locals)
+      if (err != None) return
+      // Add Code Info
+      match (buildExpr(func.body, buf)) {
+        Some(e) => {
+          err = Some(e)
+          return
+        },
+        None => void,
+      }
+      return
+    }, funcs)
+    // Return
+    match (err) {
+      Some(e) => Err(e),
+      None => Ok(RawCodeSection(Buffer.toBytes(buf))),
+    }
+  }
   // TODO: Implement this
   let buildDataSection = (dataElems: List<WasmDataSegment>) =>
     Ok(RawDataSection(Bytes.make(0)))
