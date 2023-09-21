@@ -85,7 +85,7 @@ enum WasmTypeDesc {
 /**
  * Represents wasm primitive types.
  */
-provide enum WasmType {
+provide enum rec WasmType {
   // FuncType
   WasmFuncType(List<WasmType>, List<WasmType>),
   // NumberType
@@ -105,7 +105,7 @@ provide enum WasmType {
 /**
  * Represents wasm instructions and corresponding data.
  */
-provide enum WasmInstr {
+provide enum rec WasmInstr {
   // Control Instructions
   WasmInstr_Unreachable,
   WasmInstr_Nop,
