@@ -1,24 +1,25 @@
 module Wasm
 
-include "Bytes"
-include "Buffer"
-include "Int16"
-include "int64"
-include "Uint8"
-include "list"
-include "string"
-include "float32"
-include "float64"
-include "runtime/numberUtils"
-include "runtime/numbers"
-include "runtime/dataStructures"
-include "runtime/debugPrint"
-include "runtime/unsafe/wasmi32"
-include "runtime/unsafe/wasmi64"
-include "runtime/unsafe/wasmf32"
-include "runtime/unsafe/wasmf64"
-from Numbers use { coerceNumberToWasmI32 }
-from DataStructures use { tagInt16, newInt64, newFloat32, newFloat64 }
+from "bytes" include Bytes
+from "buffer" include Buffer
+from "int16" include Int16
+from "int64" include Int64
+from "Uint8" include Uint8
+from "list" include List
+from "string" include String
+from "float32" include Float32
+from "float64" include Float64
+from "runtime/numberUtils" include NumberUtils
+from "runtime/numbers" include Numbers
+from "runtime/dataStructures" include DataStructures
+from "runtime/debugPrint" include DebugPrint
+from "runtime/unsafe/wasmi32" include WasmI32
+from "runtime/unsafe/wasmi64" include WasmI64
+from "runtime/unsafe/wasmf32" include WasmF32
+from "runtime/unsafe/wasmf64" include WasmF64
+
+use Numbers.{ coerceNumberToWasmI32 }
+use DataStructures.{ tagInt16, newInt64, newFloat32, newFloat64 }
 // Types
 // TODO: Put The Types Directly Related To Parsing Under Parsing Module
 /**
@@ -617,10 +618,7 @@ provide record WasmFunctionType {
  */
 provide enum WasmElemMode {
   ElemPassive,
-  ElemActive{
-    tableIdx: Number,
-    offset: Expression,
-  },
+  ElemActive{ tableIdx: Number, offset: Expression },
   ElemDeclarative,
 }
 /**
@@ -635,14 +633,8 @@ provide record WasmElementSegment {
  * Represents a wasm data segment.
  */
 provide enum WasmDataSegment {
-  DataActive{
-    memIdx: Number,
-    offset: Expression,
-    content: Bytes,
-  },
-  DataPassive{
-    content: Bytes,
-  },
+  DataActive{ memIdx: Number, offset: Expression, content: Bytes },
+  DataPassive{ content: Bytes, },
 }
 /**
  * Represents a wasm import description.
@@ -702,42 +694,41 @@ let toHexWithZeroPadding = (n: Number, padTo: Number) => {
   result
 }
 let formatByteOrEOL = byte => {
-  if (byte == _END_OF_INPUT) "End Of Input"
-  else "0x" ++
-    toHex(Int16.toNumber(byte))
+  if (byte == _END_OF_INPUT)
+    "End Of Input"
+  else
+    "0x" ++ toHex(Int16.toNumber(byte))
 }
-let buildUnexpectedWasmToken =
-  (
-    parserState: WasmParserState,
-    expected: Int16,
-    found: Int16,
-  ) => {
+let buildUnexpectedWasmToken = (
+  parserState: WasmParserState,
+  expected: Int16,
+  found: Int16,
+) => {
   Err(
     UnexpectedWasmToken(
       "Unexpected token at position: " ++
-      toString(parserState.pos) ++
-      ", expected: " ++
-      formatByteOrEOL(expected) ++
-      ", found: " ++
-      formatByteOrEOL(found)
-    )
+        toString(parserState.pos) ++
+        ", expected: " ++
+        formatByteOrEOL(expected) ++
+        ", found: " ++
+        formatByteOrEOL(found),
+    ),
   )
 }
-let buildUnexpectedWasmTokenCustom =
-  (
-    parserState: WasmParserState,
-    expected: String,
-    found: String,
-  ) => {
+let buildUnexpectedWasmTokenCustom = (
+  parserState: WasmParserState,
+  expected: String,
+  found: String,
+) => {
   Err(
     UnexpectedWasmToken(
       "Unexpected token at position: " ++
-      toString(parserState.pos) ++
-      ", expected: " ++
-      expected ++
-      ", found: " ++
-      found
-    )
+        toString(parserState.pos) ++
+        ", expected: " ++
+        expected ++
+        ", found: " ++
+        found,
+    ),
   )
 }
 // Streaming
@@ -756,7 +747,7 @@ let isAtEndOfInput = parserState => {
 }
 @unsafe
 let readByte = (idx: Number, bytes: Bytes) => {
-  from WasmI32 use { (+), (>) }
+  use WasmI32.{ (+), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(idx)
@@ -787,7 +778,7 @@ let nextF32 = parserState => {
   parserState.pos += 4
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { (+), (-), (>) }
+  use WasmI32.{ (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 4n
@@ -808,7 +799,7 @@ let nextF64 = parserState => {
   parserState.pos += 8
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { (+), (-), (>) }
+  use WasmI32.{ (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 8n
@@ -829,7 +820,7 @@ let nextI128 = parserState => {
   parserState.pos += 16
   let lastBytePos = parserState.pos - 1
   let bytes = parserState.bytes
-  from WasmI32 use { (+), (-), (>) }
+  use WasmI32.{ (+), (-), (>) }
   let ptr = WasmI32.fromGrain(bytes)
   let size = WasmI32.load(ptr, _SIZE_OFFSET)
   let offset = coerceNumberToWasmI32(parserState.pos) - 16n
@@ -897,11 +888,7 @@ let getStringAndAdvance = parserState => {
   // Return The String
   str
 }
-let expectByteAndAdvance =
-  (
-    expectedByte: Int16,
-    parserState: WasmParserState,
-  ) => {
+let expectByteAndAdvance = (expectedByte: Int16, parserState: WasmParserState) => {
   let c = parserState.currentByte
   if (c == expectedByte) {
     nextByteU(parserState)
@@ -911,11 +898,8 @@ let expectByteAndAdvance =
   }
 }
 let makeParser = bytes => {
-  let parserState = {
-    bytes,
-    currentByte: readByte(0, bytes),
-    pos: 1,
-  }: WasmParserState
+  let parserState = { bytes, currentByte: readByte(0, bytes), pos: 1 }:
+    WasmParserState
   parserState
 }
 let saveParser = parserState => (parserState.pos, parserState.currentByte)
@@ -935,7 +919,6 @@ provide module Parser {
    *
    * @returns The unparsed sections
    */
-
   provide let parseModule = rawBytes => {
     // Build Our Parser State
     let parserState = makeParser(rawBytes)
@@ -1295,10 +1278,7 @@ provide module Parser {
         let typeCount = getUleb128AndAdvance(parserState, 32)
         let mut types = []
         for (let mut i = 0; i < typeCount; i += 1) {
-          let wasmType = match (parseWasmType(
-            parserState,
-            typeFilter=NumType
-          )) {
+          let wasmType = match (parseWasmType(parserState, typeFilter=NumType)) {
             Ok(t) => t,
             Err(e) => return Err(e),
           }
@@ -1792,8 +1772,8 @@ provide module Parser {
                 laneIdx13,
                 laneIdx14,
                 laneIdx15,
-                laneIdx16
-              )
+                laneIdx16,
+              ),
             )
           },
           21 => {
@@ -2183,7 +2163,6 @@ provide module Parser {
    *
    * @returns The parsed section
    */
-
   provide let parseSection = section => {
     // Match The Section
     let section = match (section) {
@@ -2562,9 +2541,7 @@ provide module Parser {
               // WasmDataSection
               let size = getUleb128AndAdvance(parserState, 32)
               // Get Bytes
-              if (
-                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
-              ) {
+              if (parserState.pos - 1 + size > Bytes.length(parserState.bytes)) {
                 return Err(UnexpectedEndOfInput)
               }
               let content = Bytes.slice(
@@ -2581,9 +2558,7 @@ provide module Parser {
               // WasmDataSection
               let size = getUleb128AndAdvance(parserState, 32)
               // Get Bytes
-              if (
-                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
-              ) {
+              if (parserState.pos - 1 + size > Bytes.length(parserState.bytes)) {
                 return Err(UnexpectedEndOfInput)
               }
               let content = Bytes.slice(
@@ -2594,7 +2569,7 @@ provide module Parser {
               parserState.pos += size - 1
               nextByteU(parserState)
               // Add To List
-              data = [DataPassive{ content, }, ...data]
+              data = [DataPassive{ content }, ...data]
             },
             2 => {
               // Get Memory Index
@@ -2607,9 +2582,7 @@ provide module Parser {
               // WasmDataSection
               let size = getUleb128AndAdvance(parserState, 32)
               // Get Bytes
-              if (
-                parserState.pos - 1 + size > Bytes.length(parserState.bytes)
-              ) {
+              if (parserState.pos - 1 + size > Bytes.length(parserState.bytes)) {
                 return Err(UnexpectedEndOfInput)
               }
               let content = Bytes.slice(
@@ -2646,7 +2619,6 @@ provide module Builder {
   /**
    * Represents errors for Wasm building.
    */
-
   provide enum WasmBuildError {
     InvalidTypeInFunction,
     InvalidTypeInTypeSection,
@@ -2677,7 +2649,8 @@ provide module Builder {
       let byte_ = value & 0x7f
       value = value >> 7
       if (
-        value == 0 && (byte_ & 0x40) == 0 || value == -1 && (byte_ & 0x40) != 0
+        value == 0 && (byte_ & 0x40) == 0 ||
+        value == -1 && (byte_ & 0x40) != 0
       ) {
         Buffer.addUint8(Uint8.fromNumber(byte_), buf)
         break
@@ -2741,12 +2714,7 @@ provide module Builder {
     }
     return None
   }
-  let buildRawSection =
-    (
-      sectionID: Uint8,
-      bytes: Bytes,
-      buffer: Buffer.Buffer,
-    ) => {
+  let buildRawSection = (sectionID: Uint8, bytes: Bytes, buffer: Buffer.Buffer) => {
     // Add the section ID
     Buffer.addUint8(sectionID, buffer)
     // Add The Section Size
@@ -3387,7 +3355,7 @@ provide module Builder {
         laneIdx13,
         laneIdx14,
         laneIdx15,
-        laneIdx16
+        laneIdx16,
       ) => {
         Buffer.addUint8(0xFDus, buf)
         bufAddUleb128(13, buf)
@@ -4552,7 +4520,6 @@ provide module Builder {
    *
    * @returns The compiled section
    */
-
   provide let buildSection = (section: Sections) => {
     match (section) {
       CustomSection(b) => buildCustomSection(b),
@@ -4578,11 +4545,12 @@ provide module Builder {
    *
    * @returns The compiled sections
    */
-
   provide let buildSections = (sections: List<Sections>) => {
     // Compile Sections
-    let compiledSections = List.map((section: Sections) =>
-      buildSection(section), sections)
+    let compiledSections = List.map(
+      (section: Sections) => buildSection(section),
+      sections
+    )
     // Check For Err's
     let mut err = None
     let verifiedSections = List.map(section => {
@@ -4611,7 +4579,6 @@ provide module Builder {
    *
    * @returns The bundled module
    */
-
   provide let buildModule = (sections: List<RawSections>) => {
     let wasmFile = Buffer.make(0)
     // Append Wasm Magic Number
