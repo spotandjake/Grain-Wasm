@@ -1,0 +1,379 @@
+module Stream
+
+from "runtime/numbers" include Numbers
+use Numbers.{ coerceUint8ToNumber }
+from "bytes" include Bytes
+from "uint8" include Uint8
+from "int64" include Int64
+
+abstract record Stream {
+  bytes: Bytes,
+  size: Number,
+  mut pos: Number,
+}
+
+provide let fromBytes = bytes => {
+  { bytes, size: Bytes.length(bytes), pos: 0 }
+}
+
+provide let isEmpty = stream => {
+  stream.size == stream.pos
+}
+
+provide let advance = (byteCount, stream) => {
+  stream.pos = stream.pos + byteCount
+}
+
+provide let getPosition = stream => {
+  stream.pos
+}
+
+// Internal Helpers
+module Internal {
+  provide let uLeb128 = (limit, stream) => {
+    // TODO: Validate this function
+    let { pos, bytes, _ } = stream
+    // TODO: Enforce limit
+    let mut result = 0
+    let mut shift = 0
+    let mut byteCount = 0
+    while (true) {
+      let byte = coerceUint8ToNumber(Bytes.getUint8(pos + byteCount, bytes))
+      result = result | (byte & 0x7f) << shift
+      byteCount += 1
+      if ((0x80 & byte) == 0) break
+      shift += 7
+    }
+    (byteCount, result)
+  }
+  provide let leb128 = (limit, stream) => {
+    // TODO: Validate this function
+    let { pos, bytes, _ } = stream
+    // TODO: Enforce limit
+    let mut result = 0
+    let mut shift = 0
+    let mut byteCount = 0
+    while (true) {
+      let byte = coerceUint8ToNumber(Bytes.getUint8(pos + byteCount, bytes))
+      result = result | (byte & 0x7f) << shift
+      byteCount += 1
+      shift += 7
+      if ((0x80 & byte) == 0) {
+        if (shift < 32 && (byte & 0x40) != 0) {
+          result = result | -1 << shift
+        }
+        break
+      }
+    }
+    (byteCount, result)
+  }
+  provide let vec = stream => {
+    let (byteCount, length) = uLeb128(32, stream)
+    let stringBytes = Bytes.slice(stream.pos + byteCount, length, stream.bytes)
+    (byteCount + length, stringBytes)
+  }
+  provide let string = stream => {
+    // TODO: Validate this function
+    // String's are stored as a vec of utf-8 chars
+    let (byteCount, chars) = vec(stream)
+    (byteCount, Bytes.toString(chars))
+  }
+}
+
+//  TODO: String, int128, uInt128
+// String: Vector of utf-8 char, read uleb(32) for length, then read the chars
+// int128: 128-bit signed integer, read lower, read upper, lower | upper << 64 - I think we need to handle the sign bit here
+// uInt128: 128-bit unsigned integer, read lower, read upper, lower | upper << 64 - I think we need to handle the sign bit here
+
+provide module Get {
+  provide let byte = stream => {
+    Bytes.getUint8(stream.pos, stream.bytes)
+  }
+  provide let bytes = (byteCount, stream) => {
+    Bytes.slice(stream.pos, byteCount, stream.bytes)
+  }
+  provide let vec = stream => {
+    let (_, result) = Internal.vec(stream)
+    result
+  }
+  provide let string = stream => {
+    let (_, result) = Internal.string(stream)
+    result
+  }
+  provide let leb128 = (limit, stream) => {
+    let (_, result) = Internal.leb128(limit, stream)
+    result
+  }
+  provide let uLeb128 = (limit, stream) => {
+    let (_, result) = Internal.uLeb128(limit, stream)
+    result
+  }
+  provide let int128 = stream => {
+    // TODO: Validate the semantics of this function, I think there might be a slight bug related to overflowing
+    let lower = Int64.toNumber(Bytes.getInt64(stream.pos, stream.bytes))
+    let upper = Int64.toNumber(Bytes.getInt64(stream.pos, stream.bytes))
+    lower | upper << 64
+  }
+  provide let int64 = stream => {
+    Bytes.getInt64(stream.pos, stream.bytes)
+  }
+  provide let int32 = stream => {
+    print(Bytes.slice(stream.pos, 4, stream.bytes))
+    Bytes.getInt32(stream.pos, stream.bytes)
+  }
+  provide let int16 = stream => {
+    Bytes.getInt16(stream.pos, stream.bytes)
+  }
+  provide let int8 = stream => {
+    Bytes.getInt8(stream.pos, stream.bytes)
+  }
+  // provide let uInt128 = stream => void
+  provide let uInt64 = stream => {
+    Bytes.getUint64(stream.pos, stream.bytes)
+  }
+  provide let uInt32 = stream => {
+    Bytes.getUint32(stream.pos, stream.bytes)
+  }
+  provide let uInt16 = stream => {
+    Bytes.getUint16(stream.pos, stream.bytes)
+  }
+  provide let uInt8 = stream => {
+    Bytes.getUint8(stream.pos, stream.bytes)
+  }
+  provide let float64 = stream => {
+    Bytes.getFloat64(stream.pos, stream.bytes)
+  }
+  provide let float32 = stream => {
+    Bytes.getFloat32(stream.pos, stream.bytes)
+  }
+}
+
+provide module GetAndAdvance {
+  provide let byte = stream => {
+    let byte = Get.byte(stream)
+    advance(1, stream)
+    byte
+  }
+  provide let bytes = (byteCount, stream) => {
+    let bytes = Get.bytes(byteCount, stream)
+    advance(byteCount, stream)
+    bytes
+  }
+  provide let vec = stream => {
+    let (byteCount, result) = Internal.vec(stream)
+    advance(byteCount, stream)
+    result
+  }
+  provide let string = stream => {
+    let (byteCount, result) = Internal.string(stream)
+    advance(byteCount, stream)
+    result
+  }
+  provide let leb128 = (limit, stream) => {
+    let (byteCount, result) = Internal.leb128(limit, stream)
+    advance(byteCount, stream)
+    result
+  }
+  provide let uLeb128 = (limit, stream) => {
+    let (byteCount, result) = Internal.uLeb128(limit, stream)
+    advance(byteCount, stream)
+    result
+  }
+  provide let int128 = stream => {
+    let value = Get.int128(stream)
+    advance(16, stream)
+    value
+  }
+  provide let int64 = stream => {
+    let value = Get.int64(stream)
+    advance(8, stream)
+    value
+  }
+  provide let int32 = stream => {
+    let value = Get.int32(stream)
+    advance(4, stream)
+    value
+  }
+  provide let int16 = stream => {
+    let value = Get.int16(stream)
+    advance(2, stream)
+    value
+  }
+  provide let int8 = stream => {
+    let value = Get.int8(stream)
+    advance(1, stream)
+    value
+  }
+  // provide let uInt128 = stream => void
+  provide let uint64 = stream => {
+    let value = Get.uInt64(stream)
+    advance(8, stream)
+    value
+  }
+  provide let uInt32 = stream => {
+    let value = Get.uInt32(stream)
+    advance(4, stream)
+    value
+  }
+  provide let uInt16 = stream => {
+    let value = Get.uInt16(stream)
+    advance(2, stream)
+    value
+  }
+  provide let uInt8 = stream => {
+    let value = Get.uInt8(stream)
+    advance(1, stream)
+    value
+  }
+  provide let float64 = stream => {
+    let value = Get.float64(stream)
+    advance(8, stream)
+    value
+  }
+  provide let float32 = stream => {
+    let value = Get.float32(stream)
+    advance(4, stream)
+    value
+  }
+}
+
+module Expect {
+  provide let byte = (byte, stream) => {
+    Get.byte(stream) == byte
+  }
+  provide let bytes = (bytes, stream) => {
+    Get.bytes(Bytes.length(bytes), stream) == bytes
+  }
+  provide let string = (string, stream) => {
+    Get.string(stream) == string
+  }
+  provide let leb128 = (value, limit, stream) => {
+    let (_, result) = Internal.leb128(limit, stream)
+    value == result
+  }
+  provide let uLeb128 = (value, limit, stream) => {
+    let (_, result) = Internal.uLeb128(limit, stream)
+    value == result
+  }
+  provide let int128 = (value, stream) => {
+    Get.int128(stream) == value
+  }
+  provide let int64 = (value, stream) => {
+    Get.int64(stream) == value
+  }
+  provide let int32 = (value, stream) => {
+    Get.int32(stream) == value
+  }
+  provide let int16 = (value, stream) => {
+    Get.int16(stream) == value
+  }
+  provide let int8 = (value, stream) => {
+    Get.int8(stream) == value
+  }
+  // provide let uInt128 = stream => void
+  provide let uInt64 = (value, stream) => {
+    Get.uInt64(stream) == value
+  }
+  provide let uInt32 = (value, stream) => {
+    Get.uInt32(stream) == value
+  }
+  provide let uInt16 = (value, stream) => {
+    Get.uInt16(stream) == value
+  }
+  provide let uInt8 = (value, stream) => {
+    Get.uInt8(stream) == value
+  }
+  provide let float64 = (value, stream) => {
+    Get.float64(stream) == value
+  }
+  provide let float32 = (value, stream) => {
+    Get.float32(stream) == value
+  }
+}
+
+provide module ExpectAndAdvance {
+  provide let byte = (byte, stream) => {
+    let result = Expect.byte(byte, stream)
+    if (result) advance(1, stream)
+    result
+  }
+  provide let bytes = (bytes, stream) => {
+    let result = Expect.bytes(bytes, stream)
+    if (result) advance(Bytes.length(bytes), stream)
+    result
+  }
+  provide let string = (string, stream) => {
+    let (byteCount, result) = Internal.string(stream)
+    let result = string == result
+    if (result) advance(byteCount, stream)
+    result
+  }
+  provide let leb128 = (value, limit, stream) => {
+    let (byteCount, result) = Internal.leb128(limit, stream)
+    let result = value == result
+    if (result) advance(byteCount, stream)
+    result
+  }
+  provide let uLeb128 = (value, limit, stream) => {
+    let (byteCount, result) = Internal.uLeb128(limit, stream)
+    let result = value == result
+    if (result) advance(byteCount, stream)
+    result
+  }
+  provide let int128 = (value, stream) => {
+    let result = Expect.int128(value, stream)
+    if (result) advance(16, stream)
+    result
+  }
+  provide let int64 = (value, stream) => {
+    let result = Expect.int64(value, stream)
+    if (result) advance(8, stream)
+    result
+  }
+  provide let int32 = (value, stream) => {
+    let result = Expect.int32(value, stream)
+    if (result) advance(4, stream)
+    result
+  }
+  provide let int16 = (value, stream) => {
+    let result = Expect.int16(value, stream)
+    if (result) advance(2, stream)
+    result
+  }
+  provide let int8 = (value, stream) => {
+    let result = Expect.int8(value, stream)
+    if (result) advance(1, stream)
+    result
+  }
+  // provide let uInt128 = stream => void
+  provide let uInt64 = (value, stream) => {
+    let result = Expect.uInt64(value, stream)
+    if (result) advance(8, stream)
+    result
+  }
+  provide let uInt32 = (value, stream) => {
+    let result = Expect.uInt32(value, stream)
+    if (result) advance(4, stream)
+    result
+  }
+  provide let uInt16 = (value, stream) => {
+    let result = Expect.uInt16(value, stream)
+    if (result) advance(2, stream)
+    result
+  }
+  provide let uInt8 = (value, stream) => {
+    let result = Expect.uInt8(value, stream)
+    if (result) advance(1, stream)
+    result
+  }
+  provide let float64 = (value, stream) => {
+    let result = Expect.float64(value, stream)
+    if (result) advance(8, stream)
+    result
+  }
+  provide let float32 = (value, stream) => {
+    let result = Expect.float32(value, stream)
+    if (result) advance(4, stream)
+    result
+  }
+}

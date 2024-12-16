@@ -1,0 +1,27 @@
+module Main
+
+from "path" include Path
+from "./Fs.gr" include Fs
+from "./wasm.gr" include Wasm
+from "./print.gr" include GrainPrint
+from "list" include List
+from "result" include Result
+
+let file = match (Fs.Binary.readFile(Path.fromString("./main.gr.wasm"))) {
+  Ok(bytes) => bytes,
+  Err(err) => fail "Failed to read file",
+}
+
+let parsed = match (Wasm.Parser.parseModule(file)) {
+  Ok(m) => m,
+  Err(err) => fail "Failed to parse module",
+}
+List.forEach(s => {
+  match (s) {
+    Wasm.RawCodeSection(_) => {
+      let section = Wasm.Parser.parseSection(s)
+      GrainPrint.print(section)
+    },
+    _ => print("Not a code section"),
+  }
+}, parsed)
